@@ -1,10 +1,20 @@
 import { StatusBar } from 'expo-status-bar';
 import { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Alert } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Alert, Dimensions } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { Audio } from 'expo-av';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
 import TomatoCharacter from './components/TomatoCharacter';
+
+// Get screen dimensions for responsive design
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+// Responsive size calculations
+const TOMATO_SIZE = Math.min(SCREEN_WIDTH * 0.4, 180);
+const TIMER_FONT_SIZE = Math.min(SCREEN_WIDTH * 0.18, 72);
+const BUTTON_FONT_SIZE = Math.min(SCREEN_WIDTH * 0.045, 18);
+const SLIDER_LABEL_SIZE = Math.min(SCREEN_WIDTH * 0.04, 16);
+const CONTAINER_PADDING = SCREEN_WIDTH * 0.05;
 
 export default function App() {
   // Load Poppins font - must be first
@@ -130,14 +140,14 @@ export default function App() {
     if (!isRunning && !isPaused) {
       // Initial state: Show "Start Focus"
       return (
-        <TouchableOpacity style={styles.button} onPress={handleStartFocus}>
+        <TouchableOpacity style={styles.singleButton} onPress={handleStartFocus}>
           <Text style={styles.buttonText}>Start Focus</Text>
         </TouchableOpacity>
       );
     } else if (isRunning && !isPaused) {
       // Running state: Show "Pause"
       return (
-        <TouchableOpacity style={styles.button} onPress={handlePause}>
+        <TouchableOpacity style={styles.singleButton} onPress={handlePause}>
           <Text style={styles.buttonText}>Pause</Text>
         </TouchableOpacity>
       );
@@ -168,7 +178,7 @@ export default function App() {
   return (
     <View style={styles.container}>
       {/* Tomato Character */}
-      <TomatoCharacter size={180} />
+      <TomatoCharacter size={TOMATO_SIZE} />
 
       {/* Timer Display */}
       <Text style={styles.timerText}>{formatTime(timeInSeconds)}</Text>
@@ -205,23 +215,37 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F1ED',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 20,
+    paddingHorizontal: CONTAINER_PADDING,
+    paddingVertical: 20,
   },
   timerText: {
-    fontSize: 72,
+    fontSize: TIMER_FONT_SIZE,
     fontFamily: 'Poppins_700Bold',
     color: '#2C3E50',
     marginTop: 20,
     marginBottom: 40,
     letterSpacing: 1,
   },
-  button: {
+  singleButton: {
     backgroundColor: '#FF7A59',
-    paddingHorizontal: 50,
+    paddingHorizontal: SCREEN_WIDTH * 0.12,
     paddingVertical: 18,
     borderRadius: 30,
     marginVertical: 10,
-    minWidth: 200,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  button: {
+    backgroundColor: '#FF7A59',
+    paddingHorizontal: SCREEN_WIDTH * 0.06,
+    paddingVertical: 18,
+    borderRadius: 30,
+    marginVertical: 10,
+    flex: 1,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -231,23 +255,27 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: BUTTON_FONT_SIZE,
     fontFamily: 'Poppins_600SemiBold',
   },
   buttonRow: {
     flexDirection: 'row',
     gap: 15,
+    width: '100%',
+    maxWidth: SCREEN_WIDTH * 0.85,
+    paddingHorizontal: CONTAINER_PADDING,
   },
   resetButton: {
     backgroundColor: '#5B9BD5',
   },
   sliderContainer: {
-    width: '85%',
+    width: '90%',
+    maxWidth: 400,
     alignItems: 'center',
     marginBottom: 40,
   },
   sliderLabel: {
-    fontSize: 16,
+    fontSize: SLIDER_LABEL_SIZE,
     fontFamily: 'Poppins_400Regular',
     color: '#8B8B8B',
     marginBottom: 15,
