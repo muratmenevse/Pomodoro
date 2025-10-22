@@ -1,10 +1,12 @@
 import { StatusBar } from 'expo-status-bar';
 import { useState, useEffect, useRef } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Alert, Dimensions } from 'react-native';
-import Slider from '@react-native-community/slider';
+import { RulerPicker } from 'react-native-ruler-picker';
 import { Audio } from 'expo-av';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import TomatoCharacter from './components/TomatoCharacter';
+import CategorySelectionModal from './components/CategorySelectionModal';
 
 // Get screen dimensions for responsive design
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -16,6 +18,17 @@ const BUTTON_FONT_SIZE = Math.min(SCREEN_WIDTH * 0.045, 18);
 const SLIDER_LABEL_SIZE = Math.min(SCREEN_WIDTH * 0.04, 16);
 const CONTAINER_PADDING = SCREEN_WIDTH * 0.05;
 
+// Category configuration
+const CATEGORIES = [
+  { name: 'Focus', color: '#00BCD4', defaultMinutes: 25 },
+  { name: 'Study', color: '#5B9BD5', defaultMinutes: 45 },
+  { name: 'Work', color: '#4CAF50', defaultMinutes: 5 },
+  { name: 'Read', color: '#9C27B0', defaultMinutes: 30 },
+];
+
+// AsyncStorage key
+const CATEGORY_STORAGE_KEY = '@selected_category';
+
 export default function App() {
   // Load Poppins font - must be first
   const [fontsLoaded, fontError] = useFonts({
@@ -25,14 +38,21 @@ export default function App() {
   });
 
   const DEFAULT_MINUTES = 25;
-  const MIN_MINUTES = 1;
+  const MIN_MINUTES = 5;
   const MAX_MINUTES = 180;
-  const [timeInSeconds, setTimeInSeconds] = useState(DEFAULT_MINUTES * 60);
-  const [sliderMinutes, setSliderMinutes] = useState(DEFAULT_MINUTES);
+
+  // Initialize with Work category's default time (5 minutes)
+  const initialCategory = CATEGORIES.find(cat => cat.name === 'Work');
+  const initialMinutes = initialCategory ? initialCategory.defaultMinutes : DEFAULT_MINUTES;
+
+  const [timeInSeconds, setTimeInSeconds] = useState(initialMinutes * 60);
+  const [sliderMinutes, setSliderMinutes] = useState(initialMinutes);
   const [isRunning, setIsRunning] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const intervalRef = useRef(null);
   const [sound, setSound] = useState(null);
+  const [selectedCategory, setSelectedCategory] = useState('Work');
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
 
   // Load and play notification sound
   const playNotificationSound = async () => {
@@ -74,6 +94,22 @@ export default function App() {
       : undefined;
   }, [sound]);
 
+  // Load saved category on app start
+  useEffect(() => {
+    const loadSavedCategory = async () => {
+      try {
+        const savedCategory = await AsyncStorage.getItem(CATEGORY_STORAGE_KEY);
+        if (savedCategory && CATEGORIES.find(cat => cat.name === savedCategory)) {
+          handleCategoryChange(savedCategory);
+        }
+      } catch (error) {
+        console.log('Error loading category:', error);
+      }
+    };
+
+    loadSavedCategory();
+  }, []);
+
   // Countdown logic
   useEffect(() => {
     if (isRunning && !isPaused) {
@@ -107,6 +143,30 @@ export default function App() {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  };
+
+  // Get category color
+  const getCategoryColor = (categoryName) => {
+    const category = CATEGORIES.find(cat => cat.name === categoryName);
+    return category ? category.color : '#FF7A59';
+  };
+
+  // Handle category change
+  const handleCategoryChange = async (categoryName) => {
+    setSelectedCategory(categoryName);
+    const category = CATEGORIES.find(cat => cat.name === categoryName);
+    if (category) {
+      const minutes = category.defaultMinutes;
+      setSliderMinutes(minutes);
+      setTimeInSeconds(minutes * 60);
+
+      // Save to AsyncStorage
+      try {
+        await AsyncStorage.setItem(CATEGORY_STORAGE_KEY, categoryName);
+      } catch (error) {
+        console.log('Error saving category:', error);
+      }
+    }
   };
 
   const handleStartFocus = () => {
@@ -183,26 +243,46 @@ export default function App() {
       {/* Timer Display */}
       <Text style={styles.timerText}>{formatTime(timeInSeconds)}</Text>
 
-      {/* Slider - only show when not running */}
+      {/* Category Label */}
+      <TouchableOpacity
+        style={[styles.categoryPill, { backgroundColor: getCategoryColor(selectedCategory) }]}
+        onPress={() => setShowCategoryModal(true)}
+      >
+        <Text style={styles.categoryLabel}>{selectedCategory}</Text>
+      </TouchableOpacity>
+
+      {/* Ruler Picker - only show when not running */}
       {!isRunning && !isPaused && (
-        <View style={styles.sliderContainer}>
-          <Text style={styles.sliderLabel}>Set your focus time</Text>
-          <Slider
-            style={styles.slider}
-            minimumValue={MIN_MINUTES}
-            maximumValue={MAX_MINUTES}
-            value={sliderMinutes}
+        <View style={styles.rulerContainer}>
+          <RulerPicker
+            min={MIN_MINUTES}
+            max={MAX_MINUTES}
+            step={5}
+            fractionDigits={0}
+            initialValue={sliderMinutes}
             onValueChange={handleSliderChange}
-            step={1}
-            minimumTrackTintColor="#FF7A59"
-            maximumTrackTintColor="#D1D1D6"
-            thumbTintColor="#FF7A59"
+            onValueChangeEnd={handleSliderChange}
+            unit=""
+            height={100}
+            indicatorColor="#FF7A59"
+            width={SCREEN_WIDTH}
+            indicatorHeight={60}
+            valueTextStyle={{ fontSize: 0, height: 0, width: 0 }}
           />
         </View>
       )}
 
       {/* Buttons */}
       {renderButtons()}
+
+      {/* Category Selection Modal */}
+      <CategorySelectionModal
+        visible={showCategoryModal}
+        categories={CATEGORIES}
+        selectedCategory={selectedCategory}
+        onSelect={handleCategoryChange}
+        onClose={() => setShowCategoryModal(false)}
+      />
 
       <StatusBar style="dark" />
     </View>
@@ -214,24 +294,36 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F5F1ED',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     paddingHorizontal: CONTAINER_PADDING,
-    paddingVertical: 20,
+    paddingTop: SCREEN_HEIGHT * 0.12,
   },
   timerText: {
     fontSize: TIMER_FONT_SIZE,
     fontFamily: 'Poppins_700Bold',
     color: '#2C3E50',
     marginTop: 20,
-    marginBottom: 40,
+    marginBottom: 10,
     letterSpacing: 1,
+  },
+  categoryPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginBottom: 30,
+  },
+  categoryLabel: {
+    fontSize: Math.min(SCREEN_WIDTH * 0.035, 14),
+    fontFamily: 'Poppins_600SemiBold',
+    color: '#fff',
   },
   singleButton: {
     backgroundColor: '#FF7A59',
     paddingHorizontal: SCREEN_WIDTH * 0.12,
     paddingVertical: 18,
     borderRadius: 30,
-    marginVertical: 10,
+    marginTop: 45,
+    marginBottom: 10,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -244,7 +336,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: SCREEN_WIDTH * 0.06,
     paddingVertical: 18,
     borderRadius: 30,
-    marginVertical: 10,
+    marginBottom: 10,
     flex: 1,
     alignItems: 'center',
     shadowColor: '#000',
@@ -264,13 +356,13 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: SCREEN_WIDTH * 0.85,
     paddingHorizontal: CONTAINER_PADDING,
+    marginTop: 45,
   },
   resetButton: {
     backgroundColor: '#5B9BD5',
   },
-  sliderContainer: {
-    width: '90%',
-    maxWidth: 400,
+  rulerContainer: {
+    width: '100%',
     alignItems: 'center',
     marginBottom: 40,
   },
@@ -278,16 +370,6 @@ const styles = StyleSheet.create({
     fontSize: SLIDER_LABEL_SIZE,
     fontFamily: 'Poppins_400Regular',
     color: '#8B8B8B',
-    marginBottom: 15,
-  },
-  slider: {
-    width: '100%',
-    height: 40,
-  },
-  sliderValue: {
-    fontSize: 20,
-    fontFamily: 'Poppins_600SemiBold',
-    color: '#FF7A59',
-    marginTop: 10,
+    marginBottom: 20,
   },
 });
