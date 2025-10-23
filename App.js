@@ -18,16 +18,17 @@ const BUTTON_FONT_SIZE = Math.min(SCREEN_WIDTH * 0.045, 18);
 const SLIDER_LABEL_SIZE = Math.min(SCREEN_WIDTH * 0.04, 16);
 const CONTAINER_PADDING = SCREEN_WIDTH * 0.05;
 
-// Category configuration
-const CATEGORIES = [
+// Default category configuration
+const DEFAULT_CATEGORIES = [
   { name: 'Focus', color: '#00BCD4', defaultMinutes: 25 },
   { name: 'Study', color: '#5B9BD5', defaultMinutes: 45 },
   { name: 'Work', color: '#4CAF50', defaultMinutes: 5 },
   { name: 'Read', color: '#9C27B0', defaultMinutes: 30 },
 ];
 
-// AsyncStorage key
+// AsyncStorage keys
 const CATEGORY_STORAGE_KEY = '@selected_category';
+const CATEGORY_TIMES_KEY = '@category_times';
 
 export default function App() {
   // Load Poppins font - must be first
@@ -40,11 +41,13 @@ export default function App() {
   const DEFAULT_MINUTES = 25;
   const MIN_MINUTES = 5;
   const MAX_MINUTES = 180;
+  const STEP_INTERVAL = 5;
 
   // Initialize with Work category's default time (5 minutes)
-  const initialCategory = CATEGORIES.find(cat => cat.name === 'Work');
+  const initialCategory = DEFAULT_CATEGORIES.find(cat => cat.name === 'Work');
   const initialMinutes = initialCategory ? initialCategory.defaultMinutes : DEFAULT_MINUTES;
 
+  const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
   const [timeInSeconds, setTimeInSeconds] = useState(initialMinutes * 60);
   const [sliderMinutes, setSliderMinutes] = useState(initialMinutes);
   const [isRunning, setIsRunning] = useState(false);
@@ -94,20 +97,33 @@ export default function App() {
       : undefined;
   }, [sound]);
 
-  // Load saved category on app start
+  // Load saved category times and selected category on app start
   useEffect(() => {
-    const loadSavedCategory = async () => {
+    const loadSavedData = async () => {
       try {
+        // Load saved category times
+        const savedTimesJson = await AsyncStorage.getItem(CATEGORY_TIMES_KEY);
+        if (savedTimesJson) {
+          const savedTimes = JSON.parse(savedTimesJson);
+          // Update categories with saved times
+          const updatedCategories = DEFAULT_CATEGORIES.map(cat => ({
+            ...cat,
+            defaultMinutes: savedTimes[cat.name] !== undefined ? savedTimes[cat.name] : cat.defaultMinutes
+          }));
+          setCategories(updatedCategories);
+        }
+
+        // Load saved selected category
         const savedCategory = await AsyncStorage.getItem(CATEGORY_STORAGE_KEY);
-        if (savedCategory && CATEGORIES.find(cat => cat.name === savedCategory)) {
+        if (savedCategory && categories.find(cat => cat.name === savedCategory)) {
           handleCategoryChange(savedCategory);
         }
       } catch (error) {
-        console.log('Error loading category:', error);
+        console.log('Error loading saved data:', error);
       }
     };
 
-    loadSavedCategory();
+    loadSavedData();
   }, []);
 
   // Countdown logic
@@ -147,14 +163,14 @@ export default function App() {
 
   // Get category color
   const getCategoryColor = (categoryName) => {
-    const category = CATEGORIES.find(cat => cat.name === categoryName);
+    const category = categories.find(cat => cat.name === categoryName);
     return category ? category.color : '#FF7A59';
   };
 
   // Handle category change
   const handleCategoryChange = async (categoryName) => {
     setSelectedCategory(categoryName);
-    const category = CATEGORIES.find(cat => cat.name === categoryName);
+    const category = categories.find(cat => cat.name === categoryName);
     if (category) {
       const minutes = category.defaultMinutes;
       setSliderMinutes(minutes);
@@ -189,10 +205,29 @@ export default function App() {
     setSliderMinutes(DEFAULT_MINUTES);
   };
 
-  const handleSliderChange = (value) => {
-    const minutes = Math.round(value);
+  const handleSliderChange = async (value) => {
+    const minutes = Math.round(value / STEP_INTERVAL) * STEP_INTERVAL;
     setSliderMinutes(minutes);
     setTimeInSeconds(minutes * 60);
+
+    // Update the current category's defaultMinutes
+    const updatedCategories = categories.map(cat =>
+      cat.name === selectedCategory
+        ? { ...cat, defaultMinutes: minutes }
+        : cat
+    );
+    setCategories(updatedCategories);
+
+    // Save to AsyncStorage
+    try {
+      const categoryTimes = {};
+      updatedCategories.forEach(cat => {
+        categoryTimes[cat.name] = cat.defaultMinutes;
+      });
+      await AsyncStorage.setItem(CATEGORY_TIMES_KEY, JSON.stringify(categoryTimes));
+    } catch (error) {
+      console.log('Error saving category times:', error);
+    }
   };
 
   // Render buttons based on state
@@ -257,17 +292,21 @@ export default function App() {
           <RulerPicker
             min={MIN_MINUTES}
             max={MAX_MINUTES}
-            step={5}
+            step={STEP_INTERVAL}
             fractionDigits={0}
             initialValue={sliderMinutes}
             onValueChange={handleSliderChange}
             onValueChangeEnd={handleSliderChange}
+            shortStepHeight={30}
+            longStepHeight={60}
             unit=""
             height={100}
             indicatorColor="#FF7A59"
             width={SCREEN_WIDTH}
-            indicatorHeight={60}
+            indicatorHeight={80}
+            stepWidth={8}
             valueTextStyle={{ fontSize: 0, height: 0, width: 0 }}
+            gapBetweenSteps={20}
           />
         </View>
       )}
@@ -278,7 +317,7 @@ export default function App() {
       {/* Category Selection Modal */}
       <CategorySelectionModal
         visible={showCategoryModal}
-        categories={CATEGORIES}
+        categories={categories}
         selectedCategory={selectedCategory}
         onSelect={handleCategoryChange}
         onClose={() => setShowCategoryModal(false)}
@@ -364,6 +403,7 @@ const styles = StyleSheet.create({
   rulerContainer: {
     width: '100%',
     alignItems: 'center',
+    marginTop: 40,
     marginBottom: 40,
   },
   sliderLabel: {
