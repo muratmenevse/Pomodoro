@@ -1,12 +1,14 @@
 import { StatusBar } from 'expo-status-bar';
 import { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Alert, Dimensions } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Dimensions } from 'react-native';
 import { RulerPicker } from 'react-native-ruler-picker';
 import { Audio } from 'expo-av';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import TomatoCharacter from './components/TomatoCharacter';
 import CategorySelectionModal from './components/CategorySelectionModal';
+import { CHARACTER_STATES } from './components/characterStates';
+import CharacterTestScreen from './screens/CharacterTestScreen';
 
 // Get screen dimensions for responsive design
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -56,6 +58,8 @@ export default function App() {
   const [sound, setSound] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState('Work');
   const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [showTestScreen, setShowTestScreen] = useState(false);
+  const [isCompleted, setIsCompleted] = useState(false);
 
   // Load and play notification sound
   const playNotificationSound = async () => {
@@ -69,23 +73,6 @@ export default function App() {
     } catch (error) {
       console.log('Error playing sound:', error);
     }
-  };
-
-  // Show completion alert
-  const showCompletionAlert = () => {
-    Alert.alert(
-      'Focus Complete! 🎉',
-      'Great job! You completed your focus session.',
-      [
-        {
-          text: 'OK',
-          onPress: () => {
-            setTimeInSeconds(DEFAULT_MINUTES * 60);
-            setSliderMinutes(DEFAULT_MINUTES);
-          },
-        },
-      ]
-    );
   };
 
   // Cleanup sound
@@ -134,8 +121,8 @@ export default function App() {
           if (prevTime <= 1) {
             clearInterval(intervalRef.current);
             setIsRunning(false);
+            setIsCompleted(true);
             playNotificationSound();
-            showCompletionAlert();
             return 0;
           }
           return prevTime - 1;
@@ -188,6 +175,7 @@ export default function App() {
   const handleStartFocus = () => {
     setIsRunning(true);
     setIsPaused(false);
+    setIsCompleted(false);
   };
 
   const handlePause = () => {
@@ -201,14 +189,16 @@ export default function App() {
   const handleReset = () => {
     setIsRunning(false);
     setIsPaused(false);
+    setIsCompleted(false);
     setTimeInSeconds(DEFAULT_MINUTES * 60);
     setSliderMinutes(DEFAULT_MINUTES);
   };
 
   const handleSliderChange = async (value) => {
-    const minutes = Math.round(value / STEP_INTERVAL) * STEP_INTERVAL;
+    const minutes = Math.max(MIN_MINUTES, Math.round(value / STEP_INTERVAL) * STEP_INTERVAL);
     setSliderMinutes(minutes);
     setTimeInSeconds(minutes * 60);
+    setIsCompleted(false);
 
     // Update the current category's defaultMinutes
     const updatedCategories = categories.map(cat =>
@@ -228,6 +218,17 @@ export default function App() {
     } catch (error) {
       console.log('Error saving category times:', error);
     }
+  };
+
+  // Get character state based on timer state
+  const getCharacterState = () => {
+    if (isCompleted) {
+      return CHARACTER_STATES.COMPLETED;
+    }
+    if (isRunning && !isPaused) {
+      return CHARACTER_STATES.FOCUSING;
+    }
+    return CHARACTER_STATES.IDLE;
   };
 
   // Render buttons based on state
@@ -270,10 +271,15 @@ export default function App() {
     );
   }
 
+  // Show test screen if in test mode
+  if (showTestScreen) {
+    return <CharacterTestScreen onClose={() => setShowTestScreen(false)} />;
+  }
+
   return (
     <View style={styles.container}>
       {/* Tomato Character */}
-      <TomatoCharacter size={TOMATO_SIZE} />
+      <TomatoCharacter size={TOMATO_SIZE} state={getCharacterState()} />
 
       {/* Timer Display */}
       <Text style={styles.timerText}>{formatTime(timeInSeconds)}</Text>
@@ -290,7 +296,7 @@ export default function App() {
       {!isRunning && !isPaused && (
         <View style={styles.rulerContainer}>
           <RulerPicker
-            min={MIN_MINUTES}
+            min={0}
             max={MAX_MINUTES}
             step={STEP_INTERVAL}
             fractionDigits={0}
@@ -322,6 +328,16 @@ export default function App() {
         onSelect={handleCategoryChange}
         onClose={() => setShowCategoryModal(false)}
       />
+
+      {/* Dev-only test button */}
+      {__DEV__ && (
+        <TouchableOpacity
+          style={styles.devButton}
+          onPress={() => setShowTestScreen(true)}
+        >
+          <Text style={styles.devButtonText}>🎨 Test Animations</Text>
+        </TouchableOpacity>
+      )}
 
       <StatusBar style="dark" />
     </View>
@@ -411,5 +427,24 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins_400Regular',
     color: '#8B8B8B',
     marginBottom: 20,
+  },
+  devButton: {
+    position: 'absolute',
+    bottom: 20,
+    alignSelf: 'center',
+    backgroundColor: '#9C27B0',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 4,
+  },
+  devButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontFamily: 'Poppins_600SemiBold',
   },
 });
