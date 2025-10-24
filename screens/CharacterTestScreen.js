@@ -1,12 +1,14 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { useFonts, Poppins_600SemiBold } from '@expo-google-fonts/poppins';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { useFonts, Poppins_600SemiBold, Poppins_400Regular } from '@expo-google-fonts/poppins';
 import TomatoCharacter from '../components/TomatoCharacter';
 import { CHARACTER_STATES } from '../components/characterStates';
+import StandardModal from '../components/StandardModal';
 
-export default function CharacterTestScreen({ onClose }) {
+export default function CharacterTestScreen({ visible, onClose }) {
   const [fontsLoaded] = useFonts({
     Poppins_600SemiBold,
+    Poppins_400Regular,
   });
 
   if (!fontsLoaded) {
@@ -14,14 +16,13 @@ export default function CharacterTestScreen({ onClose }) {
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Character Animation Test</Text>
-        <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-          <Text style={styles.closeButtonText}>✕</Text>
-        </TouchableOpacity>
-      </View>
-
+    <StandardModal
+      visible={visible}
+      onClose={onClose}
+      title="Character Animations"
+      subtitle="Test different animation states"
+      scrollable={false}
+    >
       <ScrollView
         horizontal
         contentContainerStyle={styles.scrollContent}
@@ -49,40 +50,11 @@ export default function CharacterTestScreen({ onClose }) {
       <View style={styles.footer}>
         <Text style={styles.footerText}>Swipe left/right to see all states</Text>
       </View>
-    </View>
+    </StandardModal>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F1ED',
-    paddingTop: 60,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    marginBottom: 20,
-  },
-  title: {
-    fontSize: 20,
-    fontFamily: 'Poppins_600SemiBold',
-    color: '#2C3E50',
-  },
-  closeButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#FF7A59',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  closeButtonText: {
-    fontSize: 24,
-    color: '#FFFFFF',
-  },
   scrollContent: {
     paddingHorizontal: 20,
     alignItems: 'center',
@@ -100,6 +72,7 @@ const styles = StyleSheet.create({
   },
   description: {
     fontSize: 14,
+    fontFamily: 'Poppins_400Regular',
     color: '#8B8B8B',
     marginBottom: 30,
   },
@@ -109,6 +82,7 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 14,
+    fontFamily: 'Poppins_400Regular',
     color: '#8B8B8B',
   },
 });

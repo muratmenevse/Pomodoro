@@ -9,6 +9,11 @@ import TomatoCharacter from './components/TomatoCharacter';
 import CategorySelectionModal from './components/CategorySelectionModal';
 import { CHARACTER_STATES } from './components/characterStates';
 import CharacterTestScreen from './screens/CharacterTestScreen';
+import SettingsScreen from './screens/SettingsScreen';
+import { MembershipProvider } from './contexts/MembershipContext';
+import UpgradePromptModal from './components/UpgradePromptModal';
+import RevenueCatService from './services/RevenueCatService';
+import Svg, { Path } from 'react-native-svg';
 
 // Get screen dimensions for responsive design
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -32,7 +37,7 @@ const DEFAULT_CATEGORIES = [
 const CATEGORY_STORAGE_KEY = '@selected_category';
 const CATEGORY_TIMES_KEY = '@category_times';
 
-export default function App() {
+function MainApp() {
   // Load Poppins font - must be first
   const [fontsLoaded, fontError] = useFonts({
     Poppins_400Regular,
@@ -59,6 +64,7 @@ export default function App() {
   const [selectedCategory, setSelectedCategory] = useState('Work');
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showTestScreen, setShowTestScreen] = useState(false);
+  const [showSettingsScreen, setShowSettingsScreen] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
 
   // Load and play notification sound
@@ -271,13 +277,21 @@ export default function App() {
     );
   }
 
-  // Show test screen if in test mode
-  if (showTestScreen) {
-    return <CharacterTestScreen onClose={() => setShowTestScreen(false)} />;
-  }
-
   return (
     <View style={styles.container}>
+      {/* Settings Button */}
+      <TouchableOpacity
+        style={styles.settingsButton}
+        onPress={() => setShowSettingsScreen(true)}
+      >
+        <Svg width="24" height="24" viewBox="0 0 24 24">
+          <Path
+            d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"
+            fill="#8B8B8B"
+          />
+        </Svg>
+      </TouchableOpacity>
+
       {/* Tomato Character */}
       <TomatoCharacter size={TOMATO_SIZE} state={getCharacterState()} />
 
@@ -340,7 +354,36 @@ export default function App() {
       )}
 
       <StatusBar style="dark" />
+
+      {/* Upgrade Prompt Modal */}
+      <UpgradePromptModal />
+
+      {/* Settings Screen Modal */}
+      <SettingsScreen
+        visible={showSettingsScreen}
+        onClose={() => setShowSettingsScreen(false)}
+      />
+
+      {/* Character Test Screen Modal */}
+      <CharacterTestScreen
+        visible={showTestScreen}
+        onClose={() => setShowTestScreen(false)}
+      />
     </View>
+  );
+}
+
+// Main App component wrapped with providers
+export default function App() {
+  // Initialize RevenueCat on app start
+  useEffect(() => {
+    RevenueCatService.configure();
+  }, []);
+
+  return (
+    <MembershipProvider>
+      <MainApp />
+    </MembershipProvider>
   );
 }
 
@@ -446,5 +489,18 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontFamily: 'Poppins_600SemiBold',
+  },
+  settingsButton: {
+    position: 'absolute',
+    top: 60,
+    right: 20,
+    padding: 10,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
   },
 });
