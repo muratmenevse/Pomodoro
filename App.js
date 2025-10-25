@@ -18,12 +18,18 @@ import Svg, { Path } from 'react-native-svg';
 // Get screen dimensions for responsive design
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-// Responsive size calculations
-const TOMATO_SIZE = Math.min(SCREEN_WIDTH * 0.4, 180);
-const TIMER_FONT_SIZE = Math.min(SCREEN_WIDTH * 0.18, 72);
-const BUTTON_FONT_SIZE = Math.min(SCREEN_WIDTH * 0.045, 18);
-const SLIDER_LABEL_SIZE = Math.min(SCREEN_WIDTH * 0.04, 16);
+// Responsive size calculations with min/max bounds
+const TOMATO_SIZE = Math.max(110, Math.min(SCREEN_WIDTH * 0.4, 260));
+const TIMER_FONT_SIZE = Math.max(44, Math.min(SCREEN_WIDTH * 0.18, 96));
+const BUTTON_FONT_SIZE = Math.max(16, Math.min(SCREEN_WIDTH * 0.045, 22));
+const BUTTON_PADDING_HORIZONTAL = Math.max(24, Math.min(SCREEN_WIDTH * 0.12, 60));
+const SLIDER_LABEL_SIZE = Math.max(14, Math.min(SCREEN_WIDTH * 0.04, 16));
 const CONTAINER_PADDING = SCREEN_WIDTH * 0.05;
+
+// Responsive vertical spacing (reduces on small screens)
+const CONTAINER_PADDING_TOP = Math.max(SCREEN_HEIGHT * 0.08, Math.min(SCREEN_HEIGHT * 0.12, 100));
+const RULER_MARGIN_VERTICAL = SCREEN_HEIGHT < 700 ? 20 : 40;
+const BUTTON_MARGIN_TOP = SCREEN_HEIGHT < 700 ? 25 : 45;
 
 // Default category configuration
 const DEFAULT_CATEGORIES = [
@@ -247,10 +253,10 @@ function MainApp() {
         </TouchableOpacity>
       );
     } else if (isRunning && !isPaused) {
-      // Running state: Show "Pause"
+      // Running state: Show minimalist "Pause"
       return (
-        <TouchableOpacity style={styles.singleButton} onPress={handlePause}>
-          <Text style={styles.buttonText}>Pause</Text>
+        <TouchableOpacity style={styles.pauseMinimalist} onPress={handlePause}>
+          <Text style={styles.pauseText}>Pause</Text>
         </TouchableOpacity>
       );
     } else {
@@ -278,19 +284,24 @@ function MainApp() {
   }
 
   return (
-    <View style={styles.container}>
-      {/* Settings Button */}
-      <TouchableOpacity
-        style={styles.settingsButton}
-        onPress={() => setShowSettingsScreen(true)}
-      >
-        <Svg width="24" height="24" viewBox="0 0 24 24">
-          <Path
-            d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"
-            fill="#8B8B8B"
-          />
-        </Svg>
-      </TouchableOpacity>
+    <View style={[
+      styles.container,
+      (isRunning || isPaused) && styles.containerFocusMode
+    ]}>
+      {/* Settings Button - hide during focus mode */}
+      {!(isRunning || isPaused) && (
+        <TouchableOpacity
+          style={styles.settingsButton}
+          onPress={() => setShowSettingsScreen(true)}
+        >
+          <Svg width="24" height="24" viewBox="0 0 24 24">
+            <Path
+              d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"
+              fill="#8B8B8B"
+            />
+          </Svg>
+        </TouchableOpacity>
+      )}
 
       {/* Tomato Character */}
       <TomatoCharacter size={TOMATO_SIZE} state={getCharacterState()} />
@@ -343,8 +354,8 @@ function MainApp() {
         onClose={() => setShowCategoryModal(false)}
       />
 
-      {/* Dev-only test button */}
-      {__DEV__ && (
+      {/* Dev-only test button - hide during focus mode */}
+      {__DEV__ && !(isRunning || isPaused) && (
         <TouchableOpacity
           style={styles.devButton}
           onPress={() => setShowTestScreen(true)}
@@ -394,7 +405,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-start',
     paddingHorizontal: CONTAINER_PADDING,
-    paddingTop: SCREEN_HEIGHT * 0.12,
+    paddingTop: CONTAINER_PADDING_TOP,
+  },
+  containerFocusMode: {
+    justifyContent: 'center',
+    paddingTop: 0,
+    marginTop: -40,
   },
   timerText: {
     fontSize: TIMER_FONT_SIZE,
@@ -411,16 +427,16 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   categoryLabel: {
-    fontSize: Math.min(SCREEN_WIDTH * 0.035, 14),
+    fontSize: Math.max(12, Math.min(SCREEN_WIDTH * 0.035, 16)),
     fontFamily: 'Poppins_600SemiBold',
     color: '#fff',
   },
   singleButton: {
     backgroundColor: '#FF7A59',
-    paddingHorizontal: SCREEN_WIDTH * 0.12,
+    paddingHorizontal: BUTTON_PADDING_HORIZONTAL,
     paddingVertical: 18,
     borderRadius: 30,
-    marginTop: 45,
+    marginTop: BUTTON_MARGIN_TOP,
     marginBottom: 10,
     alignItems: 'center',
     shadowColor: '#000',
@@ -431,7 +447,7 @@ const styles = StyleSheet.create({
   },
   button: {
     backgroundColor: '#FF7A59',
-    paddingHorizontal: SCREEN_WIDTH * 0.06,
+    paddingHorizontal: Math.max(16, BUTTON_PADDING_HORIZONTAL * 0.6),
     paddingVertical: 18,
     borderRadius: 30,
     marginBottom: 10,
@@ -454,7 +470,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: SCREEN_WIDTH * 0.85,
     paddingHorizontal: CONTAINER_PADDING,
-    marginTop: 45,
+    marginTop: BUTTON_MARGIN_TOP,
   },
   resetButton: {
     backgroundColor: '#5B9BD5',
@@ -462,8 +478,8 @@ const styles = StyleSheet.create({
   rulerContainer: {
     width: '100%',
     alignItems: 'center',
-    marginTop: 40,
-    marginBottom: 40,
+    marginTop: RULER_MARGIN_VERTICAL,
+    marginBottom: RULER_MARGIN_VERTICAL,
   },
   sliderLabel: {
     fontSize: SLIDER_LABEL_SIZE,
@@ -502,5 +518,15 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3,
     elevation: 3,
+  },
+  pauseMinimalist: {
+    marginTop: BUTTON_MARGIN_TOP,
+    marginBottom: 10,
+    alignItems: 'center',
+  },
+  pauseText: {
+    color: '#8B8B8B',
+    fontSize: 16,
+    fontFamily: 'Poppins_400Regular',
   },
 });
