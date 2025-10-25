@@ -1,18 +1,21 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold } from '@expo-google-fonts/poppins';
-import Svg, { Path } from 'react-native-svg';
 import { useMembership } from '../contexts/MembershipContext';
 import AddCategoryModal from './AddCategoryModal';
 import MembershipBadge from './MembershipBadge';
 import StandardModal from './StandardModal';
+import PadlockIcon from './PadlockIcon';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-export default function CategorySelectionModal({ visible, categories, selectedCategory, onSelect, onClose }) {
-  const { customCategories, isPlusMember, deleteCustomCategory, setShowUpgradeModal } = useMembership();
+export default function CategorySelectionModal({ visible, categories, selectedCategory, onSelect, onClose, testPlusMode = false }) {
+  const { customCategories, isPlusMember: actualIsPlusMember, deleteCustomCategory, setShowUpgradeModal } = useMembership();
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
+
+  // In dev mode, allow testPlusMode to override actual membership
+  const isPlusMember = __DEV__ && testPlusMode ? true : actualIsPlusMember;
   const [fontsLoaded] = useFonts({
     Poppins_400Regular,
     Poppins_600SemiBold,
@@ -62,16 +65,12 @@ export default function CategorySelectionModal({ visible, categories, selectedCa
         ) : (
           <TouchableOpacity
             style={[styles.addButton, styles.addButtonContainer]}
-            onPress={() => setShowUpgradeModal(true)}
+            onPress={() => {
+              onClose();
+              setShowUpgradeModal(true);
+            }}
           >
-            <View style={styles.lockIconContainer}>
-              <Svg width="14" height="14" viewBox="0 0 24 24">
-                <Path
-                  d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM9 6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9V6zm9 14H6V10h12v10zm-6-3c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z"
-                  fill="#FFFFFF"
-                />
-              </Svg>
-            </View>
+            <PadlockIcon style={styles.padlockIcon} />
             <Text style={styles.addButtonText}>New Category</Text>
           </TouchableOpacity>
         )}
@@ -167,13 +166,7 @@ const styles = StyleSheet.create({
     color: '#2C3E50',
     textAlign: 'right',
   },
-  lockIconContainer: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#9C27B0',
-    justifyContent: 'center',
-    alignItems: 'center',
+  padlockIcon: {
     marginRight: 10,
   },
   categoryList: {

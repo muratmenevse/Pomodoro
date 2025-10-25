@@ -10,8 +10,11 @@ import CategorySelectionModal from './components/CategorySelectionModal';
 import { CHARACTER_STATES } from './components/characterStates';
 import CharacterTestScreen from './screens/CharacterTestScreen';
 import SettingsScreen from './screens/SettingsScreen';
+import ProgressScreen from './screens/ProgressScreen';
 import { MembershipProvider } from './contexts/MembershipContext';
 import UpgradePromptModal from './components/UpgradePromptModal';
+import HamburgerMenu from './components/HamburgerMenu';
+import TestSettingsModal from './components/TestSettingsModal';
 import RevenueCatService from './services/RevenueCatService';
 import Svg, { Path } from 'react-native-svg';
 
@@ -42,6 +45,9 @@ const DEFAULT_CATEGORIES = [
 // AsyncStorage keys
 const CATEGORY_STORAGE_KEY = '@selected_category';
 const CATEGORY_TIMES_KEY = '@category_times';
+const COMPLETED_SESSIONS_KEY = '@completed_sessions';
+const TEST_PLUS_MODE_KEY = '@test_plus_mode';
+const TEST_PAGES_KEY = '@test_pages';
 
 function MainApp() {
   // Load Poppins font - must be first
@@ -71,7 +77,15 @@ function MainApp() {
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showTestScreen, setShowTestScreen] = useState(false);
   const [showSettingsScreen, setShowSettingsScreen] = useState(false);
+  const [showProgressScreen, setShowProgressScreen] = useState(false);
+  const [showHamburgerMenu, setShowHamburgerMenu] = useState(false);
+  const [showTestSettingsModal, setShowTestSettingsModal] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
+  const [sessionStartMinutes, setSessionStartMinutes] = useState(initialMinutes);
+
+  // Test mode states (dev only)
+  const [testPlusMode, setTestPlusMode] = useState(false);
+  const [showTestPages, setShowTestPages] = useState(false);
 
   // Load and play notification sound
   const playNotificationSound = async () => {
@@ -125,6 +139,56 @@ function MainApp() {
     loadSavedData();
   }, []);
 
+  // Load test mode settings (dev only)
+  useEffect(() => {
+    if (__DEV__) {
+      const loadTestSettings = async () => {
+        try {
+          const testPlus = await AsyncStorage.getItem(TEST_PLUS_MODE_KEY);
+          const testPages = await AsyncStorage.getItem(TEST_PAGES_KEY);
+
+          if (testPlus !== null) {
+            setTestPlusMode(JSON.parse(testPlus));
+          }
+          if (testPages !== null) {
+            setShowTestPages(JSON.parse(testPages));
+          }
+        } catch (error) {
+          console.log('Error loading test settings:', error);
+        }
+      };
+
+      loadTestSettings();
+    }
+  }, []);
+
+  // Save test mode settings when changed (dev only)
+  useEffect(() => {
+    if (__DEV__) {
+      const saveTestSettings = async () => {
+        try {
+          await AsyncStorage.setItem(TEST_PLUS_MODE_KEY, JSON.stringify(testPlusMode));
+        } catch (error) {
+          console.log('Error saving test plus mode:', error);
+        }
+      };
+      saveTestSettings();
+    }
+  }, [testPlusMode]);
+
+  useEffect(() => {
+    if (__DEV__) {
+      const saveTestSettings = async () => {
+        try {
+          await AsyncStorage.setItem(TEST_PAGES_KEY, JSON.stringify(showTestPages));
+        } catch (error) {
+          console.log('Error saving test pages setting:', error);
+        }
+      };
+      saveTestSettings();
+    }
+  }, [showTestPages]);
+
   // Countdown logic
   useEffect(() => {
     if (isRunning && !isPaused) {
@@ -135,6 +199,8 @@ function MainApp() {
             setIsRunning(false);
             setIsCompleted(true);
             playNotificationSound();
+            // Save completed session
+            saveCompletedSession(selectedCategory, sessionStartMinutes);
             return 0;
           }
           return prevTime - 1;
@@ -184,10 +250,38 @@ function MainApp() {
     }
   };
 
+  // Save completed session to AsyncStorage
+  const saveCompletedSession = async (category, minutes) => {
+    try {
+      const today = new Date().toISOString().split('T')[0]; // Format: 2025-10-24
+      const session = {
+        category,
+        minutes,
+        timestamp: Date.now(),
+      };
+
+      // Load existing sessions
+      const existingData = await AsyncStorage.getItem(COMPLETED_SESSIONS_KEY);
+      const sessions = existingData ? JSON.parse(existingData) : {};
+
+      // Add today's session
+      if (!sessions[today]) {
+        sessions[today] = [];
+      }
+      sessions[today].push(session);
+
+      // Save back to AsyncStorage
+      await AsyncStorage.setItem(COMPLETED_SESSIONS_KEY, JSON.stringify(sessions));
+    } catch (error) {
+      console.log('Error saving completed session:', error);
+    }
+  };
+
   const handleStartFocus = () => {
     setIsRunning(true);
     setIsPaused(false);
     setIsCompleted(false);
+    setSessionStartMinutes(sliderMinutes); // Track session duration
   };
 
   const handlePause = () => {
@@ -288,15 +382,15 @@ function MainApp() {
       styles.container,
       (isRunning || isPaused) && styles.containerFocusMode
     ]}>
-      {/* Settings Button - hide during focus mode */}
+      {/* Hamburger Menu Button - hide during focus mode */}
       {!(isRunning || isPaused) && (
         <TouchableOpacity
           style={styles.settingsButton}
-          onPress={() => setShowSettingsScreen(true)}
+          onPress={() => setShowHamburgerMenu(true)}
         >
           <Svg width="24" height="24" viewBox="0 0 24 24">
             <Path
-              d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"
+              d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"
               fill="#8B8B8B"
             />
           </Svg>
@@ -345,17 +439,8 @@ function MainApp() {
       {/* Buttons */}
       {renderButtons()}
 
-      {/* Category Selection Modal */}
-      <CategorySelectionModal
-        visible={showCategoryModal}
-        categories={categories}
-        selectedCategory={selectedCategory}
-        onSelect={handleCategoryChange}
-        onClose={() => setShowCategoryModal(false)}
-      />
-
-      {/* Dev-only test button - hide during focus mode */}
-      {__DEV__ && !(isRunning || isPaused) && (
+      {/* Test Animations Button - only when test pages enabled and not in focus mode */}
+      {__DEV__ && showTestPages && !(isRunning || isPaused) && (
         <TouchableOpacity
           style={styles.devButton}
           onPress={() => setShowTestScreen(true)}
@@ -363,6 +448,16 @@ function MainApp() {
           <Text style={styles.devButtonText}>🎨 Test Animations</Text>
         </TouchableOpacity>
       )}
+
+      {/* Category Selection Modal */}
+      <CategorySelectionModal
+        visible={showCategoryModal}
+        categories={categories}
+        selectedCategory={selectedCategory}
+        onSelect={handleCategoryChange}
+        onClose={() => setShowCategoryModal(false)}
+        testPlusMode={testPlusMode}
+      />
 
       <StatusBar style="dark" />
 
@@ -380,6 +475,36 @@ function MainApp() {
         visible={showTestScreen}
         onClose={() => setShowTestScreen(false)}
       />
+
+      {/* Hamburger Menu */}
+      <HamburgerMenu
+        visible={showHamburgerMenu}
+        onClose={() => setShowHamburgerMenu(false)}
+        onSettings={() => setShowSettingsScreen(true)}
+        onProgress={() => setShowProgressScreen(true)}
+        onTest={() => setShowTestSettingsModal(true)}
+        testPlusMode={testPlusMode}
+      />
+
+      {/* Progress Screen Modal */}
+      <ProgressScreen
+        visible={showProgressScreen}
+        onClose={() => setShowProgressScreen(false)}
+        categories={categories}
+        testPlusMode={testPlusMode}
+      />
+
+      {/* Test Settings Modal (dev only) */}
+      {__DEV__ && (
+        <TestSettingsModal
+          visible={showTestSettingsModal}
+          onClose={() => setShowTestSettingsModal(false)}
+          testPlusMode={testPlusMode}
+          setTestPlusMode={setTestPlusMode}
+          showTestPages={showTestPages}
+          setShowTestPages={setShowTestPages}
+        />
+      )}
     </View>
   );
 }
@@ -487,25 +612,6 @@ const styles = StyleSheet.create({
     color: '#8B8B8B',
     marginBottom: 20,
   },
-  devButton: {
-    position: 'absolute',
-    bottom: 20,
-    alignSelf: 'center',
-    backgroundColor: '#9C27B0',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 4,
-  },
-  devButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontFamily: 'Poppins_600SemiBold',
-  },
   settingsButton: {
     position: 'absolute',
     top: 60,
@@ -528,5 +634,24 @@ const styles = StyleSheet.create({
     color: '#8B8B8B',
     fontSize: 16,
     fontFamily: 'Poppins_400Regular',
+  },
+  devButton: {
+    position: 'absolute',
+    bottom: 20,
+    alignSelf: 'center',
+    backgroundColor: '#9C27B0',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 4,
+  },
+  devButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontFamily: 'Poppins_600SemiBold',
   },
 });
