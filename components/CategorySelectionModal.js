@@ -42,7 +42,7 @@ export default function CategorySelectionModal({ visible, categories, selectedCa
   return (
     <>
       <StandardModal
-        visible={visible}
+        visible={visible && !showAddModal}
         onClose={onClose}
         title="Categories"
         showMembershipBadge={isPlusMember && <MembershipBadge style={styles.membershipBadge} />}
