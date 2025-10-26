@@ -25,11 +25,13 @@ export const MembershipProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [customCategories, setCustomCategories] = useState([]);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [testPlusMode, setTestPlusModeState] = useState(false);
 
   // Load membership status on mount
   useEffect(() => {
     loadMembershipStatus();
     loadCustomCategories();
+    loadTestMode();
   }, []);
 
   // Load membership status from AsyncStorage
@@ -59,6 +61,20 @@ export const MembershipProvider = ({ children }) => {
     }
   };
 
+  // Load test mode from AsyncStorage (dev only)
+  const loadTestMode = async () => {
+    if (__DEV__) {
+      try {
+        const testMode = await AsyncStorage.getItem('@test_plus_mode');
+        if (testMode !== null) {
+          setTestPlusModeState(JSON.parse(testMode));
+        }
+      } catch (error) {
+        console.error('Error loading test mode:', error);
+      }
+    }
+  };
+
   // Save membership status to AsyncStorage
   const saveMembershipStatus = async (tier) => {
     try {
@@ -82,8 +98,20 @@ export const MembershipProvider = ({ children }) => {
     }
   };
 
-  // Check if user has Plus membership
-  const isPlusMember = membershipTier === MEMBERSHIP_TIERS.PLUS;
+  // Set test plus mode (dev only)
+  const setTestPlusMode = async (enabled) => {
+    if (__DEV__) {
+      try {
+        await AsyncStorage.setItem('@test_plus_mode', JSON.stringify(enabled));
+        setTestPlusModeState(enabled);
+      } catch (error) {
+        console.error('Error saving test mode:', error);
+      }
+    }
+  };
+
+  // Check if user has Plus membership (considers test mode in dev)
+  const isPlusMember = __DEV__ && testPlusMode ? true : (membershipTier === MEMBERSHIP_TIERS.PLUS);
 
   // Get current membership limits
   const getMembershipLimits = () => {
@@ -122,7 +150,7 @@ export const MembershipProvider = ({ children }) => {
 
   // Add a custom category
   const addCustomCategory = async (category) => {
-    if (!canAddCategory()) {
+    if (!isPlusMember) {
       setShowUpgradeModal(true);
       return false;
     }
@@ -134,8 +162,7 @@ export const MembershipProvider = ({ children }) => {
 
   // Update a custom category
   const updateCustomCategory = async (categoryName, updates) => {
-    const limits = getMembershipLimits();
-    if (!limits.CAN_EDIT_CATEGORIES) {
+    if (!isPlusMember) {
       setShowUpgradeModal(true);
       return false;
     }
@@ -149,8 +176,7 @@ export const MembershipProvider = ({ children }) => {
 
   // Delete a custom category
   const deleteCustomCategory = async (categoryName) => {
-    const limits = getMembershipLimits();
-    if (!limits.CAN_DELETE_CATEGORIES) {
+    if (!isPlusMember) {
       setShowUpgradeModal(true);
       return false;
     }
@@ -167,9 +193,11 @@ export const MembershipProvider = ({ children }) => {
     isLoading,
     customCategories,
     showUpgradeModal,
+    testPlusMode,
 
     // Functions
     setShowUpgradeModal,
+    setTestPlusMode,
     hasFeature,
     canAddCategory,
     getMembershipLimits,

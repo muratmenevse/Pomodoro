@@ -7,16 +7,17 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold } from '@expo-google-fonts/poppins';
+import { useMembership } from '../contexts/MembershipContext';
 import StandardModal from './StandardModal';
 
 export default function TestSettingsModal({
   visible,
   onClose,
-  testPlusMode,
-  setTestPlusMode,
   showTestPages,
   setShowTestPages,
 }) {
+  const { testPlusMode, setTestPlusMode } = useMembership();
+
   const [fontsLoaded] = useFonts({
     Poppins_400Regular,
     Poppins_600SemiBold,

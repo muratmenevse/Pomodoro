@@ -28,10 +28,6 @@ export default function CategorySelectionModal({ visible, categories, selectedCa
   // Combine default categories with custom categories
   const allCategories = [...categories, ...customCategories];
 
-  const handleDeleteCategory = async (categoryName) => {
-    await deleteCustomCategory(categoryName);
-  };
-
   const handleEditCategory = (category) => {
     setEditingCategory(category);
     setShowAddModal(true);
@@ -100,28 +96,17 @@ export default function CategorySelectionModal({ visible, categories, selectedCa
                   <Text style={styles.categoryDuration}>{category.defaultMinutes}:00</Text>
                 </View>
 
-                {/* Edit/Delete buttons for custom categories */}
+                {/* Edit button for custom categories */}
                 {category.isCustom && isPlusMember && (
-                  <View style={styles.categoryActions}>
-                    <TouchableOpacity
-                      style={styles.actionButton}
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        handleEditCategory(category);
-                      }}
-                    >
-                      <Text style={styles.actionButtonText}>Edit</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.actionButton, styles.deleteButton]}
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        handleDeleteCategory(category.name);
-                      }}
-                    >
-                      <Text style={[styles.actionButtonText, styles.deleteButtonText]}>Delete</Text>
-                    </TouchableOpacity>
-                  </View>
+                  <TouchableOpacity
+                    style={styles.actionButton}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleEditCategory(category);
+                    }}
+                  >
+                    <Text style={styles.actionButtonText}>Edit</Text>
+                  </TouchableOpacity>
                 )}
               </TouchableOpacity>
             );
@@ -137,6 +122,7 @@ export default function CategorySelectionModal({ visible, categories, selectedCa
           setEditingCategory(null);
         }}
         onAdd={handleAddCategory}
+        onDelete={deleteCustomCategory}
         editingCategory={editingCategory}
       />
     </>
@@ -204,25 +190,15 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins_400Regular',
     color: '#8B8B8B',
   },
-  categoryActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
   actionButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 5,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
     borderRadius: 12,
     backgroundColor: 'rgba(156, 39, 176, 0.1)',
   },
   actionButtonText: {
-    fontSize: 12,
+    fontSize: 14,
     fontFamily: 'Poppins_600SemiBold',
     color: '#9C27B0',
-  },
-  deleteButton: {
-    backgroundColor: 'rgba(255, 0, 0, 0.1)',
-  },
-  deleteButtonText: {
-    color: '#FF0000',
   },
 });

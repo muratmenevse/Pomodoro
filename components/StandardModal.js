@@ -9,6 +9,8 @@ import {
 } from 'react-native';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold } from '@expo-google-fonts/poppins';
 import { MODAL_CONSTANTS, COMMON_MODAL_STYLES } from '../constants/modalStyles';
+import { useMembership } from '../contexts/MembershipContext';
+import MembershipBadge from './MembershipBadge';
 
 /**
  * StandardModal - Reusable modal component with consistent styling
@@ -23,7 +25,8 @@ import { MODAL_CONSTANTS, COMMON_MODAL_STYLES } from '../constants/modalStyles';
  * - scrollable: Make content scrollable (default: true)
  * - headerStyle: Custom header style
  * - contentStyle: Custom content container style
- * - showMembershipBadge: Optional membership badge component
+ * - showMembershipBadge: Optional membership badge component (manual override)
+ * - isPlusFeature: Auto-show Plus badge if user is Plus member (default: false)
  */
 export default function StandardModal({
   visible,
@@ -36,7 +39,10 @@ export default function StandardModal({
   headerStyle = {},
   contentStyle = {},
   showMembershipBadge = null,
+  isPlusFeature = false,
 }) {
+  const { isPlusMember } = useMembership();
+
   const [fontsLoaded] = useFonts({
     Poppins_400Regular,
     Poppins_600SemiBold,
@@ -45,6 +51,9 @@ export default function StandardModal({
   if (!fontsLoaded) {
     return null;
   }
+
+  // Auto-show badge if isPlusFeature and user is Plus member
+  const shouldShowBadge = showMembershipBadge || (isPlusFeature && isPlusMember);
 
   const ContentWrapper = scrollable ? ScrollView : View;
   const scrollProps = scrollable ? {
@@ -68,8 +77,10 @@ export default function StandardModal({
             {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
           </View>
 
-          {/* Membership Badge if provided */}
-          {showMembershipBadge}
+          {/* Membership Badge if provided or auto-enabled */}
+          {shouldShowBadge && (
+            showMembershipBadge || <MembershipBadge style={styles.membershipBadge} />
+          )}
 
           {/* Close Button */}
           {showCloseButton && (
@@ -100,4 +111,7 @@ const styles = StyleSheet.create({
   closeButtonText: COMMON_MODAL_STYLES.closeButtonText,
   content: COMMON_MODAL_STYLES.content,
   scrollContent: COMMON_MODAL_STYLES.scrollContent,
+  membershipBadge: {
+    marginLeft: 10,
+  },
 });

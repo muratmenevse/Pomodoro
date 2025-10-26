@@ -71,12 +71,14 @@ export default function ProgressScreen({ visible, onClose, categories, testPlusM
     return filteredSessions.reduce((total, session) => total + session.minutes, 0);
   };
 
-  // Format day label (e.g., "Sun 29")
-  const formatDayLabel = (date) => {
+  // Get day name and number separately
+  const getDayName = (date) => {
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const dayName = days[date.getDay()];
-    const dayNum = date.getDate();
-    return `${dayName}\n${dayNum}`;
+    return days[date.getDay()];
+  };
+
+  const getDayNumber = (date) => {
+    return date.getDate();
   };
 
   // Check if date is today
@@ -127,12 +129,24 @@ export default function ProgressScreen({ visible, onClose, categories, testPlusM
   const chartHeight = 200;
   const chartWidth = SCREEN_WIDTH - 80;
   const barWidth = chartWidth / 7 - 10;
+  const TOP_PADDING = 20; // Padding to prevent label cutoff at top
+
+  // Generate gridline intervals (every 15 minutes)
+  const generateGridlines = () => {
+    const maxHours = Math.ceil((maxMinutes / 60) * 4) / 4; // Round up to nearest 0.25
+    const gridlines = [];
+    for (let i = 0; i <= maxHours * 4; i++) {
+      gridlines.push(i * 0.25);
+    }
+    return gridlines;
+  };
 
   return (
     <StandardModal
       visible={visible}
       onClose={onClose}
       title="Progress"
+      isPlusFeature={true}
     >
       {/* Category Filter */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryFilter}>
@@ -173,11 +187,12 @@ export default function ProgressScreen({ visible, onClose, categories, testPlusM
 
       {/* Bar Chart */}
       <View style={styles.chartContainer}>
-        <Svg width={chartWidth + 40} height={chartHeight + 50}>
-          {/* Y-axis labels and grid lines */}
-          {[0, 0.5, 1, 1.5].map((value, index) => {
-            const y = chartHeight - (value / (maxMinutes / 60)) * chartHeight;
-            const label = value === 0 ? '0' : value === 0.5 ? '30m' : `${value}h`;
+        <Svg width={chartWidth + 40} height={chartHeight + 80}>
+          {/* Grid lines (every 15 minutes) and Y-axis labels (every 30 minutes) */}
+          {generateGridlines().map((value, index) => {
+            const y = TOP_PADDING + chartHeight - (value / (maxMinutes / 60)) * chartHeight;
+            const showLabel = value % 0.5 === 0; // Show label only at 30-minute intervals
+            const label = value === 0 ? '0' : value < 1 ? `${value * 60}m` : `${value}h`;
 
             return (
               <React.Fragment key={index}>
@@ -189,15 +204,17 @@ export default function ProgressScreen({ visible, onClose, categories, testPlusM
                   stroke="rgba(139, 139, 139, 0.2)"
                   strokeWidth="1"
                 />
-                <SvgText
-                  x="5"
-                  y={y + 5}
-                  fill="#8B8B8B"
-                  fontSize="12"
-                  fontFamily="Poppins_400Regular"
-                >
-                  {label}
-                </SvgText>
+                {showLabel && (
+                  <SvgText
+                    x="5"
+                    y={y + 5}
+                    fill="#8B8B8B"
+                    fontSize="12"
+                    fontFamily="Poppins_400Regular"
+                  >
+                    {label}
+                  </SvgText>
+                )}
               </React.Fragment>
             );
           })}
@@ -206,7 +223,7 @@ export default function ProgressScreen({ visible, onClose, categories, testPlusM
           {chartData.map((data, index) => {
             const barHeight = (data.minutes / maxMinutes) * chartHeight;
             const x = 40 + index * (barWidth + 10);
-            const y = chartHeight - barHeight;
+            const y = TOP_PADDING + chartHeight - barHeight;
             const today = isToday(data.date);
 
             return (
@@ -219,27 +236,32 @@ export default function ProgressScreen({ visible, onClose, categories, testPlusM
                   fill={today ? '#FF7A59' : 'rgba(139, 139, 139, 0.6)'}
                   rx="4"
                 />
+                {/* Day name (first row) */}
                 <SvgText
                   x={x + barWidth / 2}
-                  y={chartHeight + 20}
+                  y={TOP_PADDING + chartHeight + 18}
                   fill="#8B8B8B"
                   fontSize="11"
                   fontFamily="Poppins_400Regular"
                   textAnchor="middle"
                 >
-                  {formatDayLabel(data.date)}
+                  {getDayName(data.date)}
+                </SvgText>
+                {/* Day number (second row) */}
+                <SvgText
+                  x={x + barWidth / 2}
+                  y={TOP_PADDING + chartHeight + 32}
+                  fill="#8B8B8B"
+                  fontSize="11"
+                  fontFamily="Poppins_400Regular"
+                  textAnchor="middle"
+                >
+                  {getDayNumber(data.date)}
                 </SvgText>
               </React.Fragment>
             );
           })}
         </Svg>
-      </View>
-
-      {/* Legend */}
-      <View style={styles.legend}>
-        <Text style={styles.legendText}>
-          {selectedCategory === 'All' ? 'All Categories' : selectedCategory}
-        </Text>
       </View>
     </StandardModal>
   );
@@ -293,14 +315,5 @@ const styles = StyleSheet.create({
   chartContainer: {
     alignItems: 'center',
     marginBottom: 30,
-  },
-  legend: {
-    alignItems: 'center',
-    paddingVertical: 10,
-  },
-  legendText: {
-    fontSize: 14,
-    fontFamily: 'Poppins_600SemiBold',
-    color: '#2C3E50',
   },
 });

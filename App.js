@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Dimensions } from 'react-native';
 import { RulerPicker } from 'react-native-ruler-picker';
 import { Audio } from 'expo-av';
@@ -11,7 +11,7 @@ import { CHARACTER_STATES } from './components/characterStates';
 import CharacterTestScreen from './screens/CharacterTestScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import ProgressScreen from './screens/ProgressScreen';
-import { MembershipProvider } from './contexts/MembershipContext';
+import { MembershipProvider, useMembership } from './contexts/MembershipContext';
 import UpgradePromptModal from './components/UpgradePromptModal';
 import HamburgerMenu from './components/HamburgerMenu';
 import TestSettingsModal from './components/TestSettingsModal';
@@ -46,10 +46,12 @@ const DEFAULT_CATEGORIES = [
 const CATEGORY_STORAGE_KEY = '@selected_category';
 const CATEGORY_TIMES_KEY = '@category_times';
 const COMPLETED_SESSIONS_KEY = '@completed_sessions';
-const TEST_PLUS_MODE_KEY = '@test_plus_mode';
 const TEST_PAGES_KEY = '@test_pages';
 
 function MainApp() {
+  // Get membership context
+  const { testPlusMode, customCategories } = useMembership();
+
   // Load Poppins font - must be first
   const [fontsLoaded, fontError] = useFonts({
     Poppins_400Regular,
@@ -67,6 +69,12 @@ function MainApp() {
   const initialMinutes = initialCategory ? initialCategory.defaultMinutes : DEFAULT_MINUTES;
 
   const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
+
+  // Combine default categories with custom categories for lookups
+  const allCategories = useMemo(() => {
+    return [...categories, ...customCategories];
+  }, [categories, customCategories]);
+
   const [timeInSeconds, setTimeInSeconds] = useState(initialMinutes * 60);
   const [sliderMinutes, setSliderMinutes] = useState(initialMinutes);
   const [isRunning, setIsRunning] = useState(false);
@@ -83,8 +91,7 @@ function MainApp() {
   const [isCompleted, setIsCompleted] = useState(false);
   const [sessionStartMinutes, setSessionStartMinutes] = useState(initialMinutes);
 
-  // Test mode states (dev only)
-  const [testPlusMode, setTestPlusMode] = useState(false);
+  // Test mode state for test pages (dev only)
   const [showTestPages, setShowTestPages] = useState(false);
 
   // Load and play notification sound
@@ -128,7 +135,7 @@ function MainApp() {
 
         // Load saved selected category
         const savedCategory = await AsyncStorage.getItem(CATEGORY_STORAGE_KEY);
-        if (savedCategory && categories.find(cat => cat.name === savedCategory)) {
+        if (savedCategory && allCategories.find(cat => cat.name === savedCategory)) {
           handleCategoryChange(savedCategory);
         }
       } catch (error) {
@@ -139,22 +146,17 @@ function MainApp() {
     loadSavedData();
   }, []);
 
-  // Load test mode settings (dev only)
+  // Load test pages setting (dev only)
   useEffect(() => {
     if (__DEV__) {
       const loadTestSettings = async () => {
         try {
-          const testPlus = await AsyncStorage.getItem(TEST_PLUS_MODE_KEY);
           const testPages = await AsyncStorage.getItem(TEST_PAGES_KEY);
-
-          if (testPlus !== null) {
-            setTestPlusMode(JSON.parse(testPlus));
-          }
           if (testPages !== null) {
             setShowTestPages(JSON.parse(testPages));
           }
         } catch (error) {
-          console.log('Error loading test settings:', error);
+          console.log('Error loading test pages setting:', error);
         }
       };
 
@@ -162,20 +164,7 @@ function MainApp() {
     }
   }, []);
 
-  // Save test mode settings when changed (dev only)
-  useEffect(() => {
-    if (__DEV__) {
-      const saveTestSettings = async () => {
-        try {
-          await AsyncStorage.setItem(TEST_PLUS_MODE_KEY, JSON.stringify(testPlusMode));
-        } catch (error) {
-          console.log('Error saving test plus mode:', error);
-        }
-      };
-      saveTestSettings();
-    }
-  }, [testPlusMode]);
-
+  // Save test pages setting when changed (dev only)
   useEffect(() => {
     if (__DEV__) {
       const saveTestSettings = async () => {
@@ -228,14 +217,14 @@ function MainApp() {
 
   // Get category color
   const getCategoryColor = (categoryName) => {
-    const category = categories.find(cat => cat.name === categoryName);
+    const category = allCategories.find(cat => cat.name === categoryName);
     return category ? category.color : '#FF7A59';
   };
 
   // Handle category change
   const handleCategoryChange = async (categoryName) => {
     setSelectedCategory(categoryName);
-    const category = categories.find(cat => cat.name === categoryName);
+    const category = allCategories.find(cat => cat.name === categoryName);
     if (category) {
       const minutes = category.defaultMinutes;
       setSliderMinutes(minutes);
@@ -499,8 +488,6 @@ function MainApp() {
         <TestSettingsModal
           visible={showTestSettingsModal}
           onClose={() => setShowTestSettingsModal(false)}
-          testPlusMode={testPlusMode}
-          setTestPlusMode={setTestPlusMode}
           showTestPages={showTestPages}
           setShowTestPages={setShowTestPages}
         />

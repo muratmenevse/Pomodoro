@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,8 @@ import {
 } from 'react-native';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
 import { useMembership } from '../contexts/MembershipContext';
-import FormModal from './FormModal';
+import StandardModal from './StandardModal';
+import ConfirmationModal from './ConfirmationModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -27,20 +28,37 @@ const COLOR_OPTIONS = [
   '#607D8B', // Blue Grey
 ];
 
-export default function AddCategoryModal({ visible, onClose, onAdd, editingCategory = null }) {
+export default function AddCategoryModal({ visible, onClose, onAdd, onDelete, editingCategory = null }) {
   const { addCustomCategory, updateCustomCategory } = useMembership();
-  const [categoryName, setCategoryName] = useState(editingCategory?.name || '');
-  const [selectedColor, setSelectedColor] = useState(editingCategory?.color || COLOR_OPTIONS[0]);
-  const [defaultMinutes, setDefaultMinutes] = useState(
-    editingCategory ? String(editingCategory.defaultMinutes) : '25'
-  );
+  const [categoryName, setCategoryName] = useState('');
+  const [selectedColor, setSelectedColor] = useState(COLOR_OPTIONS[0]);
+  const [defaultMinutes, setDefaultMinutes] = useState('25');
   const [error, setError] = useState('');
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
 
   const [fontsLoaded] = useFonts({
     Poppins_400Regular,
     Poppins_600SemiBold,
     Poppins_700Bold,
   });
+
+  // Initialize form fields when modal opens
+  useEffect(() => {
+    if (visible) {
+      if (editingCategory) {
+        // Edit mode - populate with existing data
+        setCategoryName(editingCategory.name);
+        setSelectedColor(editingCategory.color);
+        setDefaultMinutes(String(editingCategory.defaultMinutes));
+      } else {
+        // Add mode - use defaults
+        setCategoryName('');
+        setSelectedColor(COLOR_OPTIONS[0]);
+        setDefaultMinutes('25');
+      }
+      setError('');
+    }
+  }, [visible, editingCategory]);
 
   if (!fontsLoaded) {
     return null;
@@ -82,16 +100,8 @@ export default function AddCategoryModal({ visible, onClose, onAdd, editingCateg
       if (onAdd) {
         onAdd(newCategory);
       }
-      handleClose();
+      onClose();
     }
-  };
-
-  const handleClose = () => {
-    setCategoryName('');
-    setSelectedColor(COLOR_OPTIONS[0]);
-    setDefaultMinutes('25');
-    setError('');
-    onClose();
   };
 
   const handleMinutesChange = (text) => {
@@ -100,12 +110,24 @@ export default function AddCategoryModal({ visible, onClose, onAdd, editingCateg
     setDefaultMinutes(cleaned);
   };
 
+  const handleDelete = () => {
+    setShowDeleteConfirmation(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (onDelete && editingCategory) {
+      await onDelete(editingCategory.name);
+      onClose();
+    }
+  };
+
   return (
-    <FormModal
+    <>
+    <StandardModal
       visible={visible}
-      onCancel={handleClose}
-      onSave={handleSave}
+      onClose={onClose}
       title={editingCategory ? 'Edit Category' : 'New Category'}
+      scrollable={true}
     >
       {/* Category Name Input */}
       <View style={styles.inputSection}>
@@ -188,7 +210,43 @@ export default function AddCategoryModal({ visible, onClose, onAdd, editingCateg
           <Text style={styles.errorText}>{error}</Text>
         </View>
       ) : null}
-    </FormModal>
+
+      {/* Save and Delete Buttons - Fixed at bottom */}
+      <View style={styles.bottomContainer}>
+        {/* Delete Button - Only show when editing */}
+        {editingCategory && (
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={handleDelete}
+          >
+            <Text style={styles.deleteButtonText}>Delete Category</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Save Button */}
+        <TouchableOpacity
+          style={styles.saveButton}
+          onPress={handleSave}
+        >
+          <Text style={styles.saveButtonText}>
+            {editingCategory ? 'Save Changes' : 'Create Category'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </StandardModal>
+
+    {/* Delete Confirmation Modal */}
+    <ConfirmationModal
+      visible={showDeleteConfirmation}
+      onClose={() => setShowDeleteConfirmation(false)}
+      title="Delete Category"
+      message={`Are you sure you want to delete "${editingCategory?.name}"? This action cannot be undone.`}
+      confirmText="Delete"
+      cancelText="Cancel"
+      confirmStyle="destructive"
+      onConfirm={handleConfirmDelete}
+    />
+  </>
   );
 }
 
@@ -298,5 +356,39 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins_400Regular',
     color: '#FF0000',
     textAlign: 'center',
+  },
+  bottomContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(139, 139, 139, 0.2)',
+  },
+  deleteButton: {
+    backgroundColor: 'rgba(255, 0, 0, 0.1)',
+    paddingVertical: 18,
+    borderRadius: 30,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  deleteButtonText: {
+    color: '#FF0000',
+    fontSize: 16,
+    fontFamily: 'Poppins_600SemiBold',
+  },
+  saveButton: {
+    backgroundColor: '#9C27B0',
+    paddingVertical: 18,
+    borderRadius: 30,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  saveButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontFamily: 'Poppins_600SemiBold',
   },
 });
