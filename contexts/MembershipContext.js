@@ -174,6 +174,15 @@ export const MembershipProvider = ({ children }) => {
     return true;
   };
 
+  // Update custom category time (doesn't require Plus check since it's just updating existing)
+  const updateCustomCategoryTime = async (categoryName, minutes) => {
+    const updatedCategories = customCategories.map(cat =>
+      cat.name === categoryName ? { ...cat, defaultMinutes: minutes } : cat
+    );
+    await saveCustomCategories(updatedCategories);
+    return true;
+  };
+
   // Delete a custom category
   const deleteCustomCategory = async (categoryName) => {
     if (!isPlusMember) {
@@ -205,6 +214,7 @@ export const MembershipProvider = ({ children }) => {
     restorePurchases,
     addCustomCategory,
     updateCustomCategory,
+    updateCustomCategoryTime,
     deleteCustomCategory,
   };
 

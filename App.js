@@ -40,21 +40,49 @@ const BUTTON_MARGIN_TOP = SCREEN_HEIGHT < 700 ? 25 : 45;
 
 // Default category configuration
 const DEFAULT_CATEGORIES = [
-  { name: 'Focus', color: '#00BCD4', defaultMinutes: 25 },
-  { name: 'Study', color: '#5B9BD5', defaultMinutes: 45 },
-  { name: 'Work', color: '#4CAF50', defaultMinutes: 5 },
-  { name: 'Read', color: '#9C27B0', defaultMinutes: 30 },
+  { name: 'Focus', color: '#00BCD4', defaultMinutes: 25, isEditable: false },
+  { name: 'Study', color: '#5B9BD5', defaultMinutes: 45, isEditable: true },
+  { name: 'Work', color: '#4CAF50', defaultMinutes: 5, isEditable: true },
 ];
 
 // AsyncStorage keys
 const CATEGORY_STORAGE_KEY = '@selected_category';
 const CATEGORY_TIMES_KEY = '@category_times';
+const CATEGORIES_LIST_KEY = '@categories_list';
 const COMPLETED_SESSIONS_KEY = '@completed_sessions';
 const TEST_PAGES_KEY = '@test_pages';
+const TEST_10_SECOND_MODE_KEY = '@test_10_second_mode';
+
+// Timer configuration objects (Strategy Pattern)
+const TIMER_CONFIGS = {
+  normal: {
+    minMinutes: 5,
+    maxMinutes: 180,
+    stepInterval: 5,
+    defaultMinutes: 25,
+    useSlider: true,
+    displayText: null,
+  },
+  test10Second: {
+    minMinutes: 10 / 60,  // 10 seconds in minutes
+    maxMinutes: 10 / 60,
+    stepInterval: 0,
+    defaultMinutes: 10 / 60,
+    useSlider: false,
+    displayText: 'Test Mode',
+  },
+};
+
+// Factory function to get appropriate timer configuration
+const getTimerConfig = (test10SecondMode) => {
+  return (test10SecondMode && __DEV__)
+    ? TIMER_CONFIGS.test10Second
+    : TIMER_CONFIGS.normal;
+};
 
 function MainApp() {
   // Get membership context
-  const { testPlusMode, customCategories } = useMembership();
+  const { testPlusMode, customCategories, updateCustomCategoryTime } = useMembership();
   const { openModal } = useModalManager();
 
   // Load Poppins font - must be first
@@ -64,14 +92,9 @@ function MainApp() {
     Poppins_700Bold,
   });
 
-  const DEFAULT_MINUTES = 25;
-  const MIN_MINUTES = 5;
-  const MAX_MINUTES = 180;
-  const STEP_INTERVAL = 5;
-
   // Initialize with Work category's default time (5 minutes)
   const initialCategory = DEFAULT_CATEGORIES.find(cat => cat.name === 'Work');
-  const initialMinutes = initialCategory ? initialCategory.defaultMinutes : DEFAULT_MINUTES;
+  const initialMinutes = initialCategory ? initialCategory.defaultMinutes : TIMER_CONFIGS.normal.defaultMinutes;
 
   const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
 
@@ -97,6 +120,13 @@ function MainApp() {
 
   // Test mode state for test pages (dev only)
   const [showTestPages, setShowTestPages] = useState(false);
+  const [test10SecondMode, setTest10SecondMode] = useState(false);
+
+  // Get timer configuration based on mode (Configuration Object Pattern)
+  const timerConfig = useMemo(
+    () => getTimerConfig(test10SecondMode),
+    [test10SecondMode]
+  );
 
   // Load and play notification sound
   const playNotificationSound = async () => {
@@ -125,16 +155,23 @@ function MainApp() {
   useEffect(() => {
     const loadSavedData = async () => {
       try {
-        // Load saved category times
-        const savedTimesJson = await AsyncStorage.getItem(CATEGORY_TIMES_KEY);
-        if (savedTimesJson) {
-          const savedTimes = JSON.parse(savedTimesJson);
-          // Update categories with saved times
-          const updatedCategories = DEFAULT_CATEGORIES.map(cat => ({
-            ...cat,
-            defaultMinutes: savedTimes[cat.name] !== undefined ? savedTimes[cat.name] : cat.defaultMinutes
-          }));
-          setCategories(updatedCategories);
+        // Load saved categories list (includes deleted state)
+        const savedCategoriesJson = await AsyncStorage.getItem(CATEGORIES_LIST_KEY);
+        if (savedCategoriesJson) {
+          const savedCategories = JSON.parse(savedCategoriesJson);
+          setCategories(savedCategories);
+        } else {
+          // Fallback: Load saved category times if categories list doesn't exist
+          const savedTimesJson = await AsyncStorage.getItem(CATEGORY_TIMES_KEY);
+          if (savedTimesJson) {
+            const savedTimes = JSON.parse(savedTimesJson);
+            // Update categories with saved times
+            const updatedCategories = DEFAULT_CATEGORIES.map(cat => ({
+              ...cat,
+              defaultMinutes: savedTimes[cat.name] !== undefined ? savedTimes[cat.name] : cat.defaultMinutes
+            }));
+            setCategories(updatedCategories);
+          }
         }
 
         // Load saved selected category
@@ -159,8 +196,13 @@ function MainApp() {
           if (testPages !== null) {
             setShowTestPages(JSON.parse(testPages));
           }
+
+          const test10Second = await AsyncStorage.getItem(TEST_10_SECOND_MODE_KEY);
+          if (test10Second !== null) {
+            setTest10SecondMode(JSON.parse(test10Second));
+          }
         } catch (error) {
-          console.log('Error loading test pages setting:', error);
+          console.log('Error loading test settings:', error);
         }
       };
 
@@ -168,19 +210,20 @@ function MainApp() {
     }
   }, []);
 
-  // Save test pages setting when changed (dev only)
+  // Save test settings when changed (dev only)
   useEffect(() => {
     if (__DEV__) {
       const saveTestSettings = async () => {
         try {
           await AsyncStorage.setItem(TEST_PAGES_KEY, JSON.stringify(showTestPages));
+          await AsyncStorage.setItem(TEST_10_SECOND_MODE_KEY, JSON.stringify(test10SecondMode));
         } catch (error) {
-          console.log('Error saving test pages setting:', error);
+          console.log('Error saving test settings:', error);
         }
       };
       saveTestSettings();
     }
-  }, [showTestPages]);
+  }, [showTestPages, test10SecondMode]);
 
   // Countdown logic
   useEffect(() => {
@@ -243,12 +286,52 @@ function MainApp() {
     }
   };
 
+  // Delete a default category (only editable ones)
+  const deleteDefaultCategory = async (categoryName) => {
+    const categoryToDelete = categories.find(cat => cat.name === categoryName);
+
+    // Only allow deleting editable categories
+    if (!categoryToDelete || !categoryToDelete.isEditable) {
+      return false;
+    }
+
+    // Remove from categories array
+    const updatedCategories = categories.filter(cat => cat.name !== categoryName);
+    setCategories(updatedCategories);
+
+    // Save the full categories list to AsyncStorage (preserves deleted state)
+    try {
+      await AsyncStorage.setItem(CATEGORIES_LIST_KEY, JSON.stringify(updatedCategories));
+
+      // Also update category times for backward compatibility
+      const categoryTimes = {};
+      updatedCategories.forEach(cat => {
+        categoryTimes[cat.name] = cat.defaultMinutes;
+      });
+      await AsyncStorage.setItem(CATEGORY_TIMES_KEY, JSON.stringify(categoryTimes));
+    } catch (error) {
+      console.log('Error saving categories:', error);
+    }
+
+    // If deleted category was selected, switch to first available category
+    if (selectedCategory === categoryName) {
+      const firstCategory = updatedCategories[0] || customCategories[0];
+      if (firstCategory) {
+        handleCategoryChange(firstCategory.name);
+      }
+    }
+
+    return true;
+  };
+
   // Save completed session to AsyncStorage
   const saveCompletedSession = async (category, minutes) => {
     try {
       const today = new Date().toISOString().split('T')[0]; // Format: 2025-10-24
+      const categoryColor = getCategoryColor(category);
       const session = {
         category,
+        color: categoryColor,
         minutes,
         timestamp: Date.now(),
       };
@@ -274,7 +357,11 @@ function MainApp() {
     setIsRunning(true);
     setIsPaused(false);
     setIsCompleted(false);
-    setSessionStartMinutes(sliderMinutes); // Track session duration
+
+    // Use timer config to determine duration
+    const minutes = timerConfig.useSlider ? sliderMinutes : timerConfig.defaultMinutes;
+    setSessionStartMinutes(minutes);
+    setTimeInSeconds(minutes * 60);
   };
 
   const handlePause = () => {
@@ -289,33 +376,43 @@ function MainApp() {
     setIsRunning(false);
     setIsPaused(false);
     setIsCompleted(false);
-    setTimeInSeconds(DEFAULT_MINUTES * 60);
-    setSliderMinutes(DEFAULT_MINUTES);
+    setTimeInSeconds(timerConfig.defaultMinutes * 60);
+    setSliderMinutes(timerConfig.defaultMinutes);
   };
 
   const handleSliderChange = async (value) => {
-    const minutes = Math.max(MIN_MINUTES, Math.round(value / STEP_INTERVAL) * STEP_INTERVAL);
+    const minutes = Math.max(timerConfig.minMinutes, Math.round(value / timerConfig.stepInterval) * timerConfig.stepInterval);
     setSliderMinutes(minutes);
     setTimeInSeconds(minutes * 60);
     setIsCompleted(false);
 
-    // Update the current category's defaultMinutes
-    const updatedCategories = categories.map(cat =>
-      cat.name === selectedCategory
-        ? { ...cat, defaultMinutes: minutes }
-        : cat
-    );
-    setCategories(updatedCategories);
+    // Check if this is a custom category
+    const isCustomCategory = customCategories.some(cat => cat.name === selectedCategory);
 
-    // Save to AsyncStorage
-    try {
-      const categoryTimes = {};
-      updatedCategories.forEach(cat => {
-        categoryTimes[cat.name] = cat.defaultMinutes;
-      });
-      await AsyncStorage.setItem(CATEGORY_TIMES_KEY, JSON.stringify(categoryTimes));
-    } catch (error) {
-      console.log('Error saving category times:', error);
+    if (isCustomCategory) {
+      // Update custom category time
+      await updateCustomCategoryTime(selectedCategory, minutes);
+    } else {
+      // Update default category's defaultMinutes
+      const updatedCategories = categories.map(cat =>
+        cat.name === selectedCategory
+          ? { ...cat, defaultMinutes: minutes }
+          : cat
+      );
+      setCategories(updatedCategories);
+
+      // Save to AsyncStorage (both full list and times for backward compatibility)
+      try {
+        await AsyncStorage.setItem(CATEGORIES_LIST_KEY, JSON.stringify(updatedCategories));
+
+        const categoryTimes = {};
+        updatedCategories.forEach(cat => {
+          categoryTimes[cat.name] = cat.defaultMinutes;
+        });
+        await AsyncStorage.setItem(CATEGORY_TIMES_KEY, JSON.stringify(categoryTimes));
+      } catch (error) {
+        console.log('Error saving category times:', error);
+      }
     }
   };
 
@@ -404,33 +501,40 @@ function MainApp() {
           selectedCategory,
           onSelect: handleCategoryChange,
           testPlusMode,
+          deleteDefaultCategory,
         })}
       >
         <Text style={styles.categoryLabel}>{selectedCategory}</Text>
       </TouchableOpacity>
 
-      {/* Ruler Picker - only show when not running */}
+      {/* Ruler Picker or Test Mode indicator - only show when not running */}
       {!isRunning && !isPaused && (
         <View style={styles.rulerContainer}>
-          <RulerPicker
-            min={0}
-            max={MAX_MINUTES}
-            step={STEP_INTERVAL}
-            fractionDigits={0}
-            initialValue={sliderMinutes}
-            onValueChange={handleSliderChange}
-            onValueChangeEnd={handleSliderChange}
-            shortStepHeight={30}
-            longStepHeight={60}
-            unit=""
-            height={100}
-            indicatorColor="#FF7A59"
-            width={SCREEN_WIDTH}
-            indicatorHeight={80}
-            stepWidth={8}
-            valueTextStyle={{ fontSize: 0, height: 0, width: 0 }}
-            gapBetweenSteps={20}
-          />
+          {timerConfig.useSlider ? (
+            <RulerPicker
+              min={0}
+              max={timerConfig.maxMinutes}
+              step={timerConfig.stepInterval}
+              fractionDigits={0}
+              initialValue={sliderMinutes}
+              onValueChange={handleSliderChange}
+              onValueChangeEnd={handleSliderChange}
+              shortStepHeight={30}
+              longStepHeight={60}
+              unit=""
+              height={100}
+              indicatorColor="#FF7A59"
+              width={SCREEN_WIDTH}
+              indicatorHeight={80}
+              stepWidth={8}
+              valueTextStyle={{ fontSize: 0, height: 0, width: 0 }}
+              gapBetweenSteps={20}
+            />
+          ) : (
+            <View style={styles.testModeContainer}>
+              <Text style={styles.testModeText}>{timerConfig.displayText}</Text>
+            </View>
+          )}
         </View>
       )}
 
@@ -494,6 +598,8 @@ function MainApp() {
           onClose={() => setShowTestSettingsModal(false)}
           showTestPages={showTestPages}
           setShowTestPages={setShowTestPages}
+          test10SecondMode={test10SecondMode}
+          setTest10SecondMode={setTest10SecondMode}
         />
       )}
     </View>
@@ -646,5 +752,15 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontFamily: 'Poppins_600SemiBold',
+  },
+  testModeContainer: {
+    height: 100,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  testModeText: {
+    fontSize: 18,
+    fontFamily: 'Poppins_600SemiBold',
+    color: '#9C27B0',
   },
 });

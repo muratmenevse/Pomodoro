@@ -87,6 +87,36 @@ export default function ProgressScreen({ visible, onClose, categories, testPlusM
     return date.toDateString() === today.toDateString();
   };
 
+  // Get categories that have sessions within the chart's visible range
+  const getCategoriesWithSessions = () => {
+    const last7Days = getLast7Days();
+    const categoryMap = new Map(); // Map of category name -> category object
+
+    // Extract categories from sessions within the visible date range
+    last7Days.forEach(date => {
+      const dateString = date.toISOString().split('T')[0];
+      const sessions = sessionData[dateString] || [];
+
+      sessions.forEach(session => {
+        if (!categoryMap.has(session.category)) {
+          // Build category object from session data or active categories
+          const activeCategory = categories.find(cat => cat.name === session.category);
+
+          categoryMap.set(session.category, {
+            name: session.category,
+            color: session.color || (activeCategory ? activeCategory.color : '#8B8B8B'), // Use stored color or active category color or default
+            defaultMinutes: activeCategory ? activeCategory.defaultMinutes : 25,
+          });
+        }
+      });
+    });
+
+    const categoriesWithSessions = Array.from(categoryMap.values());
+
+    // If no sessions exist in visible range, show all categories (for new users)
+    return categoriesWithSessions.length > 0 ? categoriesWithSessions : categories;
+  };
+
   if (!fontsLoaded) {
     return null;
   }
@@ -126,6 +156,7 @@ export default function ProgressScreen({ visible, onClose, categories, testPlusM
   }));
 
   const maxMinutes = Math.max(...chartData.map(d => d.minutes), 60); // At least 60 min scale
+  const filteredCategories = getCategoriesWithSessions();
   const chartHeight = 200;
   const chartWidth = SCREEN_WIDTH - 80;
   const barWidth = chartWidth / 7 - 10;
@@ -164,7 +195,7 @@ export default function ProgressScreen({ visible, onClose, categories, testPlusM
           ]}>All</Text>
         </TouchableOpacity>
 
-        {categories.map((category) => {
+        {filteredCategories.map((category) => {
           const isSelected = selectedCategory === category.name;
           return (
             <TouchableOpacity

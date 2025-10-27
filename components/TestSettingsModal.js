@@ -15,6 +15,8 @@ export default function TestSettingsModal({
   onClose,
   showTestPages,
   setShowTestPages,
+  test10SecondMode,
+  setTest10SecondMode,
 }) {
   const { testPlusMode, setTestPlusMode } = useMembership();
 
@@ -67,7 +69,7 @@ export default function TestSettingsModal({
 
             {/* Show Test Pages */}
             <TouchableOpacity
-              style={[styles.settingItem, styles.lastItem]}
+              style={styles.settingItem}
               onPress={() => setShowTestPages(!showTestPages)}
               activeOpacity={0.7}
             >
@@ -80,6 +82,28 @@ export default function TestSettingsModal({
               <Switch
                 value={showTestPages}
                 onValueChange={setShowTestPages}
+                trackColor={{ false: '#8B8B8B', true: '#9C27B0' }}
+                thumbColor="#FFFFFF"
+              />
+            </TouchableOpacity>
+
+            <View style={styles.separator} />
+
+            {/* 10 Second Timer */}
+            <TouchableOpacity
+              style={[styles.settingItem, styles.lastItem]}
+              onPress={() => setTest10SecondMode(!test10SecondMode)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.settingItemLeft}>
+                <Text style={styles.settingItemTitle}>10 Second Timer</Text>
+                <Text style={styles.settingItemDescription}>
+                  Set timer to 10 seconds for quick testing of completion states
+                </Text>
+              </View>
+              <Switch
+                value={test10SecondMode}
+                onValueChange={setTest10SecondMode}
                 trackColor={{ false: '#8B8B8B', true: '#9C27B0' }}
                 thumbColor="#FFFFFF"
               />

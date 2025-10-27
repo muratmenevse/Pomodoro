@@ -14,7 +14,7 @@ export default function CategorySelectionModal() {
   const { openModal } = useModalManager();
   const { customCategories, isPlusMember: actualIsPlusMember, deleteCustomCategory, setShowUpgradeModal } = useMembership();
 
-  const { categories, selectedCategory, onSelect, testPlusMode = false } = params;
+  const { categories, selectedCategory, onSelect, testPlusMode = false, deleteDefaultCategory } = params;
 
   // In dev mode, allow testPlusMode to override actual membership
   const isPlusMember = __DEV__ && testPlusMode ? true : actualIsPlusMember;
@@ -34,14 +34,16 @@ export default function CategorySelectionModal() {
   const handleEditCategory = (category) => {
     openModal('AddCategory', {
       editingCategory: category,
-      onDelete: deleteCustomCategory,
+      deleteDefaultCategory,
+      deleteCustomCategory,
       onAdd: () => {}, // Category is automatically added to context
     });
   };
 
   const handleAddNewCategory = () => {
     openModal('AddCategory', {
-      onDelete: deleteCustomCategory,
+      deleteDefaultCategory,
+      deleteCustomCategory,
       onAdd: () => {}, // Category is automatically added to context
     });
   };
@@ -99,8 +101,8 @@ export default function CategorySelectionModal() {
                   <Text style={styles.categoryDuration}>{category.defaultMinutes}:00</Text>
                 </View>
 
-                {/* Edit button for custom categories */}
-                {category.isCustom && isPlusMember && (
+                {/* Edit button for custom and editable categories */}
+                {(category.isCustom || category.isEditable) && isPlusMember && (
                   <TouchableOpacity
                     style={styles.actionButton}
                     onPress={(e) => {

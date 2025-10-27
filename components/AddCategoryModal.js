@@ -33,11 +33,10 @@ export default function AddCategoryModal() {
   const { openModal } = useModalManager();
   const { addCustomCategory, updateCustomCategory } = useMembership();
 
-  const { onAdd, onDelete, editingCategory = null } = params;
+  const { onAdd, deleteDefaultCategory, deleteCustomCategory, editingCategory = null } = params;
 
   const [categoryName, setCategoryName] = useState('');
   const [selectedColor, setSelectedColor] = useState(COLOR_OPTIONS[0]);
-  const [defaultMinutes, setDefaultMinutes] = useState('25');
   const [error, setError] = useState('');
 
   const [fontsLoaded] = useFonts({
@@ -53,12 +52,10 @@ export default function AddCategoryModal() {
         // Edit mode - populate with existing data
         setCategoryName(editingCategory.name);
         setSelectedColor(editingCategory.color);
-        setDefaultMinutes(String(editingCategory.defaultMinutes));
       } else {
         // Add mode - use defaults
         setCategoryName('');
         setSelectedColor(COLOR_OPTIONS[0]);
-        setDefaultMinutes('25');
       }
       setError('');
     }
@@ -81,16 +78,10 @@ export default function AddCategoryModal() {
       return;
     }
 
-    const minutes = parseInt(defaultMinutes, 10);
-    if (isNaN(minutes) || minutes < 5 || minutes > 180) {
-      setError('Duration must be between 5 and 180 minutes');
-      return;
-    }
-
     const newCategory = {
       name: categoryName.trim(),
       color: selectedColor,
-      defaultMinutes: minutes,
+      defaultMinutes: 25,
       isCustom: true,
     };
 
@@ -109,12 +100,6 @@ export default function AddCategoryModal() {
     }
   };
 
-  const handleMinutesChange = (text) => {
-    // Only allow numbers
-    const cleaned = text.replace(/[^0-9]/g, '');
-    setDefaultMinutes(cleaned);
-  };
-
   const handleDelete = () => {
     openModal('Confirmation', {
       title: 'Delete Category',
@@ -127,9 +112,19 @@ export default function AddCategoryModal() {
   };
 
   const handleConfirmDelete = async () => {
-    if (onDelete && editingCategory) {
-      await onDelete(editingCategory.name);
-      close();
+    if (editingCategory) {
+      try {
+        // Use the appropriate delete handler based on category type
+        const deleteHandler = editingCategory.isCustom ? deleteCustomCategory : deleteDefaultCategory;
+
+        if (deleteHandler && typeof deleteHandler === 'function') {
+          await deleteHandler(editingCategory.name);
+          close();
+        }
+      } catch (error) {
+        console.error('Error deleting category:', error);
+        setError('Failed to delete category');
+      }
     }
   };
 
@@ -182,23 +177,6 @@ export default function AddCategoryModal() {
         </View>
       </View>
 
-      {/* Default Duration */}
-      <View style={styles.inputSection}>
-        <Text style={styles.label}>Default Duration (minutes)</Text>
-        <TextInput
-          style={styles.textInput}
-          value={defaultMinutes}
-          onChangeText={handleMinutesChange}
-          keyboardType="numeric"
-          placeholder="25"
-          placeholderTextColor="#8B8B8B"
-          maxLength={3}
-        />
-        <Text style={styles.durationHint}>
-          Between 5 and 180 minutes
-        </Text>
-      </View>
-
       {/* Preview */}
       <View style={styles.previewSection}>
         <Text style={styles.label}>Preview</Text>
@@ -209,7 +187,7 @@ export default function AddCategoryModal() {
               {categoryName || 'Category Name'}
             </Text>
             <Text style={styles.previewDuration}>
-              {defaultMinutes || '25'}:00
+              25:00
             </Text>
           </View>
         </View>
@@ -305,12 +283,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 20,
     fontWeight: 'bold',
-  },
-  durationHint: {
-    fontSize: 12,
-    fontFamily: 'Poppins_400Regular',
-    color: '#8B8B8B',
-    marginTop: 5,
   },
   previewSection: {
     marginBottom: 30,
