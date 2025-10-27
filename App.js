@@ -7,11 +7,15 @@ import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } fr
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import TomatoCharacter from './components/TomatoCharacter';
 import CategorySelectionModal from './components/CategorySelectionModal';
+import AddCategoryModal from './components/AddCategoryModal';
+import ConfirmationModal from './components/ConfirmationModal';
 import { CHARACTER_STATES } from './components/characterStates';
+import { useModalManager } from './contexts/ModalContext';
 import CharacterTestScreen from './screens/CharacterTestScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import ProgressScreen from './screens/ProgressScreen';
 import { MembershipProvider, useMembership } from './contexts/MembershipContext';
+import { ModalProvider } from './contexts/ModalContext';
 import UpgradePromptModal from './components/UpgradePromptModal';
 import HamburgerMenu from './components/HamburgerMenu';
 import TestSettingsModal from './components/TestSettingsModal';
@@ -51,6 +55,7 @@ const TEST_PAGES_KEY = '@test_pages';
 function MainApp() {
   // Get membership context
   const { testPlusMode, customCategories } = useMembership();
+  const { openModal } = useModalManager();
 
   // Load Poppins font - must be first
   const [fontsLoaded, fontError] = useFonts({
@@ -82,7 +87,6 @@ function MainApp() {
   const intervalRef = useRef(null);
   const [sound, setSound] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState('Work');
-  const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showTestScreen, setShowTestScreen] = useState(false);
   const [showSettingsScreen, setShowSettingsScreen] = useState(false);
   const [showProgressScreen, setShowProgressScreen] = useState(false);
@@ -395,7 +399,12 @@ function MainApp() {
       {/* Category Label */}
       <TouchableOpacity
         style={[styles.categoryPill, { backgroundColor: getCategoryColor(selectedCategory) }]}
-        onPress={() => setShowCategoryModal(true)}
+        onPress={() => openModal('CategorySelection', {
+          categories,
+          selectedCategory,
+          onSelect: handleCategoryChange,
+          testPlusMode,
+        })}
       >
         <Text style={styles.categoryLabel}>{selectedCategory}</Text>
       </TouchableOpacity>
@@ -438,15 +447,10 @@ function MainApp() {
         </TouchableOpacity>
       )}
 
-      {/* Category Selection Modal */}
-      <CategorySelectionModal
-        visible={showCategoryModal}
-        categories={categories}
-        selectedCategory={selectedCategory}
-        onSelect={handleCategoryChange}
-        onClose={() => setShowCategoryModal(false)}
-        testPlusMode={testPlusMode}
-      />
+      {/* Modal Components */}
+      <CategorySelectionModal />
+      <AddCategoryModal />
+      <ConfirmationModal />
 
       <StatusBar style="dark" />
 
@@ -505,7 +509,9 @@ export default function App() {
 
   return (
     <MembershipProvider>
-      <MainApp />
+      <ModalProvider>
+        <MainApp />
+      </ModalProvider>
     </MembershipProvider>
   );
 }

@@ -1,18 +1,20 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold } from '@expo-google-fonts/poppins';
 import { useMembership } from '../contexts/MembershipContext';
-import AddCategoryModal from './AddCategoryModal';
+import { useModal, useModalManager } from '../contexts/ModalContext';
 import MembershipBadge from './MembershipBadge';
 import StandardModal from './StandardModal';
 import PadlockIcon from './PadlockIcon';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-export default function CategorySelectionModal({ visible, categories, selectedCategory, onSelect, onClose, testPlusMode = false }) {
+export default function CategorySelectionModal() {
+  const { visible, params, close, isTop } = useModal('CategorySelection');
+  const { openModal } = useModalManager();
   const { customCategories, isPlusMember: actualIsPlusMember, deleteCustomCategory, setShowUpgradeModal } = useMembership();
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [editingCategory, setEditingCategory] = useState(null);
+
+  const { categories, selectedCategory, onSelect, testPlusMode = false } = params;
 
   // In dev mode, allow testPlusMode to override actual membership
   const isPlusMember = __DEV__ && testPlusMode ? true : actualIsPlusMember;
@@ -21,7 +23,8 @@ export default function CategorySelectionModal({ visible, categories, selectedCa
     Poppins_600SemiBold,
   });
 
-  if (!fontsLoaded) {
+  // Only render if this modal is the top-most modal
+  if (!fontsLoaded || !visible || !isTop) {
     return null;
   }
 
@@ -29,50 +32,50 @@ export default function CategorySelectionModal({ visible, categories, selectedCa
   const allCategories = [...categories, ...customCategories];
 
   const handleEditCategory = (category) => {
-    setEditingCategory(category);
-    setShowAddModal(true);
+    openModal('AddCategory', {
+      editingCategory: category,
+      onDelete: deleteCustomCategory,
+      onAdd: () => {}, // Category is automatically added to context
+    });
   };
 
-  const handleAddCategory = (newCategory) => {
-    // Category is automatically added to context by AddCategoryModal
-    // Just close the modal
-    setShowAddModal(false);
+  const handleAddNewCategory = () => {
+    openModal('AddCategory', {
+      onDelete: deleteCustomCategory,
+      onAdd: () => {}, // Category is automatically added to context
+    });
   };
 
   return (
-    <>
-      <StandardModal
-        visible={visible && !showAddModal}
-        onClose={onClose}
-        title="Categories"
-        showMembershipBadge={isPlusMember && <MembershipBadge style={styles.membershipBadge} />}
-      >
-        {/* New Category Button */}
-        {isPlusMember ? (
-          <TouchableOpacity
-            style={[styles.addButton, styles.addButtonContainer]}
-            onPress={() => {
-              setEditingCategory(null);
-              setShowAddModal(true);
-            }}
-          >
-            <Text style={styles.addButtonText}>New Category</Text>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            style={[styles.addButton, styles.addButtonContainer]}
-            onPress={() => {
-              onClose();
-              setShowUpgradeModal(true);
-            }}
-          >
-            <PadlockIcon style={styles.padlockIcon} />
-            <Text style={styles.addButtonText}>New Category</Text>
-          </TouchableOpacity>
-        )}
+    <StandardModal
+      visible={visible}
+      onClose={close}
+      title="Categories"
+      showMembershipBadge={isPlusMember && <MembershipBadge style={styles.membershipBadge} />}
+    >
+      {/* New Category Button */}
+      {isPlusMember ? (
+        <TouchableOpacity
+          style={[styles.addButton, styles.addButtonContainer]}
+          onPress={handleAddNewCategory}
+        >
+          <Text style={styles.addButtonText}>New Category</Text>
+        </TouchableOpacity>
+      ) : (
+        <TouchableOpacity
+          style={[styles.addButton, styles.addButtonContainer]}
+          onPress={() => {
+            close();
+            setShowUpgradeModal(true);
+          }}
+        >
+          <PadlockIcon style={styles.padlockIcon} />
+          <Text style={styles.addButtonText}>New Category</Text>
+        </TouchableOpacity>
+      )}
 
-        {/* Category list */}
-        <View style={styles.categoryList}>
+      {/* Category list */}
+      <View style={styles.categoryList}>
           {allCategories.map((category) => {
             const isSelected = category.name === selectedCategory;
             return (
@@ -84,7 +87,7 @@ export default function CategorySelectionModal({ visible, categories, selectedCa
                 ]}
                 onPress={() => {
                   onSelect(category.name);
-                  onClose();
+                  close();
                 }}
               >
                 {/* Color circle */}
@@ -111,21 +114,8 @@ export default function CategorySelectionModal({ visible, categories, selectedCa
               </TouchableOpacity>
             );
           })}
-        </View>
-      </StandardModal>
-
-      {/* Add/Edit Category Modal */}
-      <AddCategoryModal
-        visible={showAddModal}
-        onClose={() => {
-          setShowAddModal(false);
-          setEditingCategory(null);
-        }}
-        onAdd={handleAddCategory}
-        onDelete={deleteCustomCategory}
-        editingCategory={editingCategory}
-      />
-    </>
+      </View>
+    </StandardModal>
   );
 }
 

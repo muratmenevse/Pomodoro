@@ -9,8 +9,8 @@ import {
 } from 'react-native';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
 import { useMembership } from '../contexts/MembershipContext';
+import { useModal, useModalManager } from '../contexts/ModalContext';
 import StandardModal from './StandardModal';
-import ConfirmationModal from './ConfirmationModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -28,13 +28,17 @@ const COLOR_OPTIONS = [
   '#607D8B', // Blue Grey
 ];
 
-export default function AddCategoryModal({ visible, onClose, onAdd, onDelete, editingCategory = null }) {
+export default function AddCategoryModal() {
+  const { visible, params, close, isTop } = useModal('AddCategory');
+  const { openModal } = useModalManager();
   const { addCustomCategory, updateCustomCategory } = useMembership();
+
+  const { onAdd, onDelete, editingCategory = null } = params;
+
   const [categoryName, setCategoryName] = useState('');
   const [selectedColor, setSelectedColor] = useState(COLOR_OPTIONS[0]);
   const [defaultMinutes, setDefaultMinutes] = useState('25');
   const [error, setError] = useState('');
-  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
 
   const [fontsLoaded] = useFonts({
     Poppins_400Regular,
@@ -60,7 +64,8 @@ export default function AddCategoryModal({ visible, onClose, onAdd, onDelete, ed
     }
   }, [visible, editingCategory]);
 
-  if (!fontsLoaded) {
+  // Only render if this modal is the top-most modal
+  if (!fontsLoaded || !visible || !isTop) {
     return null;
   }
 
@@ -100,7 +105,7 @@ export default function AddCategoryModal({ visible, onClose, onAdd, onDelete, ed
       if (onAdd) {
         onAdd(newCategory);
       }
-      onClose();
+      close();
     }
   };
 
@@ -111,21 +116,27 @@ export default function AddCategoryModal({ visible, onClose, onAdd, onDelete, ed
   };
 
   const handleDelete = () => {
-    setShowDeleteConfirmation(true);
+    openModal('Confirmation', {
+      title: 'Delete Category',
+      message: `Are you sure you want to delete "${editingCategory?.name}"? This action cannot be undone.`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      confirmStyle: 'destructive',
+      onConfirm: handleConfirmDelete,
+    });
   };
 
   const handleConfirmDelete = async () => {
     if (onDelete && editingCategory) {
       await onDelete(editingCategory.name);
-      onClose();
+      close();
     }
   };
 
   return (
-    <>
     <StandardModal
       visible={visible}
-      onClose={onClose}
+      onClose={close}
       title={editingCategory ? 'Edit Category' : 'New Category'}
       scrollable={true}
     >
@@ -234,19 +245,6 @@ export default function AddCategoryModal({ visible, onClose, onAdd, onDelete, ed
         </TouchableOpacity>
       </View>
     </StandardModal>
-
-    {/* Delete Confirmation Modal */}
-    <ConfirmationModal
-      visible={showDeleteConfirmation}
-      onClose={() => setShowDeleteConfirmation(false)}
-      title="Delete Category"
-      message={`Are you sure you want to delete "${editingCategory?.name}"? This action cannot be undone.`}
-      confirmText="Delete"
-      cancelText="Cancel"
-      confirmStyle="destructive"
-      onConfirm={handleConfirmDelete}
-    />
-  </>
   );
 }
 

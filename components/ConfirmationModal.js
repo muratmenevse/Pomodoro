@@ -7,36 +7,36 @@ import {
 } from 'react-native';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold } from '@expo-google-fonts/poppins';
 import StandardModal from './StandardModal';
+import { useModal } from '../contexts/ModalContext';
 
 /**
  * ConfirmationModal - Reusable confirmation dialog
  *
- * Props:
- * - visible: Boolean to control modal visibility
- * - onClose: Function to call when closing/canceling
- * - title: Title of the confirmation dialog
+ * Modal params (passed via openModal):
+ * - title: Title of the confirmation dialog (default: "Confirm")
  * - message: Message/question to display
  * - confirmText: Text for confirm button (default: "Confirm")
  * - cancelText: Text for cancel button (default: "Cancel")
  * - onConfirm: Function to call when user confirms
  * - confirmStyle: 'default' (purple) or 'destructive' (red) (default: 'default')
  */
-export default function ConfirmationModal({
-  visible,
-  onClose,
-  title = 'Confirm',
-  message,
-  confirmText = 'Confirm',
-  cancelText = 'Cancel',
-  onConfirm,
-  confirmStyle = 'default',
-}) {
+export default function ConfirmationModal() {
+  const { visible, params, close, isTop } = useModal('Confirmation');
+  const {
+    title = 'Confirm',
+    message,
+    confirmText = 'Confirm',
+    cancelText = 'Cancel',
+    onConfirm,
+    confirmStyle = 'default',
+  } = params;
   const [fontsLoaded] = useFonts({
     Poppins_400Regular,
     Poppins_600SemiBold,
   });
 
-  if (!fontsLoaded) {
+  // Only render if this modal is the top-most modal
+  if (!fontsLoaded || !visible || !isTop) {
     return null;
   }
 
@@ -44,13 +44,13 @@ export default function ConfirmationModal({
     if (onConfirm) {
       onConfirm();
     }
-    onClose();
+    close();
   };
 
   return (
     <StandardModal
       visible={visible}
-      onClose={onClose}
+      onClose={close}
       title={title}
       scrollable={false}
       showCloseButton={false}
@@ -64,7 +64,7 @@ export default function ConfirmationModal({
       <View style={styles.buttonContainer}>
         <TouchableOpacity
           style={styles.cancelButton}
-          onPress={onClose}
+          onPress={close}
         >
           <Text style={styles.cancelButtonText}>{cancelText}</Text>
         </TouchableOpacity>
