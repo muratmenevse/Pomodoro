@@ -33,21 +33,6 @@ export function ModalProvider({ children }) {
   }, []);
 
   /**
-   * Close a specific modal by name
-   * @param {string} name - Modal name to close
-   */
-  const closeModalByName = useCallback((name) => {
-    setModalStack(prev => prev.filter(modal => modal.name !== name));
-  }, []);
-
-  /**
-   * Close all modals
-   */
-  const closeAllModals = useCallback(() => {
-    setModalStack([]);
-  }, []);
-
-  /**
    * Check if a specific modal is open
    * @param {string} name - Modal name
    * @returns {boolean}
@@ -80,8 +65,6 @@ export function ModalProvider({ children }) {
     modalStack,
     openModal,
     closeModal,
-    closeModalByName,
-    closeAllModals,
     isModalOpen,
     getModalParams,
     isTopModal,
