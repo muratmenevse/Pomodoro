@@ -70,7 +70,7 @@ export default function StandardModal({
     >
       <View style={styles.container}>
         {/* Header */}
-        <View style={[styles.header, headerStyle]}>
+        <View style={[styles.header, headerStyle, { zIndex: 10 }]}>
           {/* Title and Subtitle */}
           <View style={styles.titleContainer}>
             {title && <Text style={styles.title}>{title}</Text>}
@@ -91,7 +91,7 @@ export default function StandardModal({
         </View>
 
         {/* Content */}
-        <ContentWrapper style={[styles.content, contentStyle]} {...scrollProps}>
+        <ContentWrapper style={[styles.content, contentStyle, { zIndex: 1 }]} {...scrollProps}>
           {children}
         </ContentWrapper>
       </View>

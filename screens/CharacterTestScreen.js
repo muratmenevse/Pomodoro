@@ -45,6 +45,12 @@ export default function CharacterTestScreen({ visible, onClose }) {
           <Text style={styles.description}>Happy + Bounce</Text>
           <TomatoCharacter size={180} state={CHARACTER_STATES.COMPLETED} />
         </View>
+
+        <View style={styles.characterContainer}>
+          <Text style={styles.label}>BREAK</Text>
+          <Text style={styles.description}>Relaxed + Coffee</Text>
+          <TomatoCharacter size={180} state={CHARACTER_STATES.BREAK} />
+        </View>
       </ScrollView>
 
       <View style={styles.footer}>

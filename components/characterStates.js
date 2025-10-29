@@ -1,5 +1,6 @@
 export const CHARACTER_STATES = {
   IDLE: 'idle',           // Static, default state
   FOCUSING: 'focusing',   // Timer running
-  COMPLETED: 'completed'  // Timer reached zero
+  COMPLETED: 'completed', // Timer reached zero
+  BREAK: 'break'          // Break time - relaxed with coffee
 };

@@ -19,6 +19,8 @@ import { ModalProvider } from './contexts/ModalContext';
 import UpgradePromptModal from './components/UpgradePromptModal';
 import HamburgerMenu from './components/HamburgerMenu';
 import TestSettingsModal from './components/TestSettingsModal';
+import SuccessModal from './components/SuccessModal';
+import BreakModal from './components/BreakModal';
 import RevenueCatService from './services/RevenueCatService';
 import Svg, { Path } from 'react-native-svg';
 
@@ -41,8 +43,6 @@ const BUTTON_MARGIN_TOP = SCREEN_HEIGHT < 700 ? 25 : 45;
 // Default category configuration
 const DEFAULT_CATEGORIES = [
   { name: 'Focus', color: '#00BCD4', defaultMinutes: 25, isEditable: false },
-  { name: 'Study', color: '#5B9BD5', defaultMinutes: 45, isEditable: true },
-  { name: 'Work', color: '#4CAF50', defaultMinutes: 5, isEditable: true },
 ];
 
 // AsyncStorage keys
@@ -92,8 +92,8 @@ function MainApp() {
     Poppins_700Bold,
   });
 
-  // Initialize with Work category's default time (5 minutes)
-  const initialCategory = DEFAULT_CATEGORIES.find(cat => cat.name === 'Work');
+  // Initialize with Focus category's default time (25 minutes)
+  const initialCategory = DEFAULT_CATEGORIES.find(cat => cat.name === 'Focus');
   const initialMinutes = initialCategory ? initialCategory.defaultMinutes : TIMER_CONFIGS.normal.defaultMinutes;
 
   const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
@@ -109,12 +109,14 @@ function MainApp() {
   const [isPaused, setIsPaused] = useState(false);
   const intervalRef = useRef(null);
   const [sound, setSound] = useState(null);
-  const [selectedCategory, setSelectedCategory] = useState('Work');
+  const [selectedCategory, setSelectedCategory] = useState('Focus');
   const [showTestScreen, setShowTestScreen] = useState(false);
   const [showSettingsScreen, setShowSettingsScreen] = useState(false);
   const [showProgressScreen, setShowProgressScreen] = useState(false);
   const [showHamburgerMenu, setShowHamburgerMenu] = useState(false);
   const [showTestSettingsModal, setShowTestSettingsModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showBreakModal, setShowBreakModal] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
   const [sessionStartMinutes, setSessionStartMinutes] = useState(initialMinutes);
 
@@ -132,8 +134,7 @@ function MainApp() {
   const playNotificationSound = async () => {
     try {
       const { sound } = await Audio.Sound.createAsync(
-        // Using a free notification sound URL
-        { uri: 'https://actions.google.com/sounds/v1/alarms/beep_short.ogg' }
+        require('./assets/sounds/successSound.m4a')
       );
       setSound(sound);
       await sound.playAsync();
@@ -225,6 +226,15 @@ function MainApp() {
     }
   }, [showTestPages, test10SecondMode]);
 
+  // Update timer display when test mode changes
+  useEffect(() => {
+    if (!isRunning && !isPaused) {
+      const minutes = timerConfig.defaultMinutes;
+      setTimeInSeconds(minutes * 60);
+      setSliderMinutes(minutes);
+    }
+  }, [test10SecondMode]);
+
   // Countdown logic
   useEffect(() => {
     if (isRunning && !isPaused) {
@@ -237,6 +247,8 @@ function MainApp() {
             playNotificationSound();
             // Save completed session
             saveCompletedSession(selectedCategory, sessionStartMinutes);
+            // Show success modal
+            setShowSuccessModal(true);
             return 0;
           }
           return prevTime - 1;
@@ -376,6 +388,27 @@ function MainApp() {
     setIsRunning(false);
     setIsPaused(false);
     setIsCompleted(false);
+    setTimeInSeconds(timerConfig.defaultMinutes * 60);
+    setSliderMinutes(timerConfig.defaultMinutes);
+  };
+
+  const handleSuccessClose = () => {
+    setShowSuccessModal(false);
+    setIsCompleted(false);
+    // Reset timer based on current mode (test or normal)
+    setTimeInSeconds(timerConfig.defaultMinutes * 60);
+    setSliderMinutes(timerConfig.defaultMinutes);
+  };
+
+  const handleBreakStart = () => {
+    setShowSuccessModal(false);
+    setShowBreakModal(true);
+  };
+
+  const handleBreakClose = () => {
+    setShowBreakModal(false);
+    setIsCompleted(false);
+    // Reset timer based on current mode (test or normal)
     setTimeInSeconds(timerConfig.defaultMinutes * 60);
     setSliderMinutes(timerConfig.defaultMinutes);
   };
@@ -602,6 +635,19 @@ function MainApp() {
           setTest10SecondMode={setTest10SecondMode}
         />
       )}
+
+      {/* Success Modal */}
+      <SuccessModal
+        visible={showSuccessModal}
+        onClose={handleSuccessClose}
+        onBreak={handleBreakStart}
+      />
+
+      {/* Break Modal */}
+      <BreakModal
+        visible={showBreakModal}
+        onClose={handleBreakClose}
+      />
     </View>
   );
 }

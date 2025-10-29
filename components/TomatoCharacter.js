@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated } from 'react-native';
+import { Animated, Easing } from 'react-native';
 import Svg, { Circle, Ellipse, Path, G, Rect } from 'react-native-svg';
 import { CHARACTER_STATES } from './characterStates';
 
@@ -7,11 +7,20 @@ export default function TomatoCharacter({ size = 150, state = CHARACTER_STATES.I
   const breathingAnim = useRef(new Animated.Value(1)).current;
   const bounceAnim = useRef(new Animated.Value(0)).current;
   const wiggleAnim = useRef(new Animated.Value(0)).current;
+  const swayAnim = useRef(new Animated.Value(0)).current;
+  const steamAnim = useRef(new Animated.Value(0)).current;
+
+  // Animation instance refs for cleanup
+  const breathingAnimRef = useRef(null);
+  const bounceAnimRef = useRef(null);
+  const wiggleAnimRef = useRef(null);
+  const swayAnimRef = useRef(null);
+  const steamAnimRef = useRef(null);
 
   // Breathing animation loop for focusing state
   useEffect(() => {
     if (state === CHARACTER_STATES.FOCUSING) {
-      Animated.loop(
+      breathingAnimRef.current = Animated.loop(
         Animated.sequence([
           Animated.timing(breathingAnim, {
             toValue: 1.05,
@@ -24,17 +33,27 @@ export default function TomatoCharacter({ size = 150, state = CHARACTER_STATES.I
             useNativeDriver: true,
           }),
         ])
-      ).start();
+      );
+      breathingAnimRef.current.start();
     } else {
+      if (breathingAnimRef.current) {
+        breathingAnimRef.current.stop();
+      }
       breathingAnim.setValue(1);
     }
+
+    return () => {
+      if (breathingAnimRef.current) {
+        breathingAnimRef.current.stop();
+      }
+    };
   }, [state]);
 
   // Playful bounce and wiggle animation for completed state (continuous loop)
   useEffect(() => {
     if (state === CHARACTER_STATES.COMPLETED) {
       // Continuous bouncing loop
-      Animated.loop(
+      bounceAnimRef.current = Animated.loop(
         Animated.sequence([
           Animated.timing(bounceAnim, {
             toValue: -25,
@@ -57,10 +76,11 @@ export default function TomatoCharacter({ size = 150, state = CHARACTER_STATES.I
             useNativeDriver: true,
           }),
         ])
-      ).start();
+      );
+      bounceAnimRef.current.start();
 
       // Wiggle/rotate animation
-      Animated.loop(
+      wiggleAnimRef.current = Animated.loop(
         Animated.sequence([
           Animated.timing(wiggleAnim, {
             toValue: 10,
@@ -78,11 +98,89 @@ export default function TomatoCharacter({ size = 150, state = CHARACTER_STATES.I
             useNativeDriver: true,
           }),
         ])
-      ).start();
+      );
+      wiggleAnimRef.current.start();
     } else {
+      if (bounceAnimRef.current) {
+        bounceAnimRef.current.stop();
+      }
+      if (wiggleAnimRef.current) {
+        wiggleAnimRef.current.stop();
+      }
       bounceAnim.setValue(0);
       wiggleAnim.setValue(0);
     }
+
+    return () => {
+      if (bounceAnimRef.current) {
+        bounceAnimRef.current.stop();
+      }
+      if (wiggleAnimRef.current) {
+        wiggleAnimRef.current.stop();
+      }
+    };
+  }, [state]);
+
+  // Gentle sway and steam animation for break state
+  useEffect(() => {
+    if (state === CHARACTER_STATES.BREAK) {
+      // Reset to start position
+      swayAnim.setValue(0);
+      steamAnim.setValue(0);
+
+      // Gentle side-to-side sway using sine wave for perfectly smooth motion
+      swayAnimRef.current = Animated.loop(
+        Animated.sequence([
+          Animated.timing(swayAnim, {
+            toValue: 1,
+            duration: 3000,
+            easing: Easing.linear,
+            useNativeDriver: true,
+          }),
+          Animated.timing(swayAnim, {
+            toValue: 0,
+            duration: 0,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      swayAnimRef.current.start();
+
+      // Steam rising animation
+      steamAnimRef.current = Animated.loop(
+        Animated.sequence([
+          Animated.timing(steamAnim, {
+            toValue: 1,
+            duration: 2000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(steamAnim, {
+            toValue: 0,
+            duration: 0,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      steamAnimRef.current.start();
+    } else {
+      if (swayAnimRef.current) {
+        swayAnimRef.current.stop();
+      }
+      if (steamAnimRef.current) {
+        steamAnimRef.current.stop();
+      }
+      swayAnim.setValue(0);
+      steamAnim.setValue(0);
+    }
+
+    return () => {
+      if (swayAnimRef.current) {
+        swayAnimRef.current.stop();
+      }
+      if (steamAnimRef.current) {
+        steamAnimRef.current.stop();
+      }
+    };
   }, [state]);
 
   // Render eyes based on state
@@ -117,6 +215,14 @@ export default function TomatoCharacter({ size = 150, state = CHARACTER_STATES.I
           <Circle cx="85" cy="85" r="2" fill="#2C3E50" />
         </G>
       );
+    } else if (state === CHARACTER_STATES.BREAK) {
+      // Relaxed eyes: slightly larger, content
+      return (
+        <G>
+          <Circle cx="65" cy="85" r="3.5" fill="#2C3E50" />
+          <Circle cx="85" cy="85" r="3.5" fill="#2C3E50" />
+        </G>
+      );
     } else {
       // Normal eyes: • •
       return (
@@ -146,6 +252,17 @@ export default function TomatoCharacter({ size = 150, state = CHARACTER_STATES.I
       return (
         <Path
           d="M 65 95 L 85 95"
+          stroke="#2C3E50"
+          strokeWidth="2"
+          fill="none"
+          strokeLinecap="round"
+        />
+      );
+    } else if (state === CHARACTER_STATES.BREAK) {
+      // Content smile (between normal and big)
+      return (
+        <Path
+          d="M 63 95 Q 75 101, 87 95"
           stroke="#2C3E50"
           strokeWidth="2"
           fill="none"
@@ -222,6 +339,106 @@ export default function TomatoCharacter({ size = 150, state = CHARACTER_STATES.I
     return null;
   };
 
+  // Render coffee cup with steam for break state
+  const renderCoffeeCup = () => {
+    if (state === CHARACTER_STATES.BREAK) {
+      return (
+        <G>
+          {/* Coffee cup body */}
+          <Path
+            d="M 105 95 L 105 110 Q 105 115, 110 115 L 125 115 Q 130 115, 130 110 L 130 95 Z"
+            fill="#8B4513"
+            stroke="#2C3E50"
+            strokeWidth="2"
+          />
+          {/* Coffee liquid */}
+          <Path
+            d="M 106 98 L 129 98 L 129 110 Q 129 113, 126 113 L 109 113 Q 106 113, 106 110 Z"
+            fill="#6B3410"
+          />
+          {/* Cup handle */}
+          <Path
+            d="M 130 100 Q 138 100, 138 107 Q 138 114, 130 114"
+            fill="none"
+            stroke="#2C3E50"
+            strokeWidth="2"
+          />
+        </G>
+      );
+    }
+    return null;
+  };
+
+  // Render animated steam separately outside SVG
+  const renderSteam = () => {
+    if (state === CHARACTER_STATES.BREAK) {
+      const steamOpacity = steamAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0.7, 0]
+      });
+
+      const steamTranslateY = steamAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0, -15]
+      });
+
+      return (
+        <Animated.View
+          style={{
+            position: 'absolute',
+            width: size,
+            height: size,
+            opacity: steamOpacity,
+            transform: [{ translateY: steamTranslateY }],
+            pointerEvents: 'none',
+          }}
+        >
+          <Svg width={size} height={size} viewBox="0 0 150 150">
+            <Path
+              d="M 110 90 Q 112 85, 110 80"
+              stroke="#999999"
+              strokeWidth="1.5"
+              fill="none"
+              strokeLinecap="round"
+            />
+            <Path
+              d="M 117 92 Q 119 87, 117 82"
+              stroke="#999999"
+              strokeWidth="1.5"
+              fill="none"
+              strokeLinecap="round"
+            />
+            <Path
+              d="M 124 90 Q 126 85, 124 80"
+              stroke="#999999"
+              strokeWidth="1.5"
+              fill="none"
+              strokeLinecap="round"
+            />
+          </Svg>
+        </Animated.View>
+      );
+    }
+    return null;
+  };
+
+  // Determine which rotation animation to use based on state
+  const getRotationTransform = () => {
+    if (state === CHARACTER_STATES.BREAK) {
+      // Use sine wave for perfectly smooth pendulum motion
+      return { rotate: swayAnim.interpolate({
+        inputRange: [0, 0.25, 0.5, 0.75, 1],
+        outputRange: ['0deg', '5deg', '0deg', '-5deg', '0deg']
+      })};
+    } else if (state === CHARACTER_STATES.COMPLETED) {
+      return { rotate: wiggleAnim.interpolate({
+        inputRange: [-10, 10],
+        outputRange: ['-10deg', '10deg']
+      })};
+    }
+    return { rotate: '0deg' };
+  };
+
   return (
     <Animated.View
       style={{
@@ -231,13 +448,10 @@ export default function TomatoCharacter({ size = 150, state = CHARACTER_STATES.I
         justifyContent: 'center',
         transform: [
           { translateY: bounceAnim },
-          { rotate: wiggleAnim.interpolate({
-              inputRange: [-10, 10],
-              outputRange: ['-10deg', '10deg']
-            })
-          }
+          getRotationTransform()
         ]
       }}
+      pointerEvents="none"
     >
       <Animated.View style={{ transform: [{ scale: breathingAnim }] }}>
         <Svg width={size} height={size} viewBox="0 0 150 150">
@@ -280,7 +494,12 @@ export default function TomatoCharacter({ size = 150, state = CHARACTER_STATES.I
 
           {/* Glasses (only when focusing) */}
           {renderGlasses()}
+
+          {/* Coffee cup (only when on break) */}
+          {renderCoffeeCup()}
         </Svg>
+        {/* Animated steam overlay */}
+        {renderSteam()}
       </Animated.View>
     </Animated.View>
   );
