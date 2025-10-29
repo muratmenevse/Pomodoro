@@ -24,7 +24,6 @@ export const MembershipProvider = ({ children }) => {
   const [membershipTier, setMembershipTier] = useState(MEMBERSHIP_TIERS.FREE);
   const [isLoading, setIsLoading] = useState(true);
   const [customCategories, setCustomCategories] = useState([]);
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [testPlusMode, setTestPlusModeState] = useState(false);
 
   // Load membership status on mount
@@ -151,7 +150,6 @@ export const MembershipProvider = ({ children }) => {
   // Add a custom category
   const addCustomCategory = async (category) => {
     if (!isPlusMember) {
-      setShowUpgradeModal(true);
       return false;
     }
 
@@ -163,7 +161,6 @@ export const MembershipProvider = ({ children }) => {
   // Update a custom category
   const updateCustomCategory = async (categoryName, updates) => {
     if (!isPlusMember) {
-      setShowUpgradeModal(true);
       return false;
     }
 
@@ -186,7 +183,6 @@ export const MembershipProvider = ({ children }) => {
   // Delete a custom category
   const deleteCustomCategory = async (categoryName) => {
     if (!isPlusMember) {
-      setShowUpgradeModal(true);
       return false;
     }
 
@@ -201,11 +197,9 @@ export const MembershipProvider = ({ children }) => {
     isPlusMember,
     isLoading,
     customCategories,
-    showUpgradeModal,
     testPlusMode,
 
     // Functions
-    setShowUpgradeModal,
     setTestPlusMode,
     hasFeature,
     canAddCategory,

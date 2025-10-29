@@ -10,12 +10,12 @@ import {
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
 import RevenueCatService from '../services/RevenueCatService';
 import { useMembership } from '../contexts/MembershipContext';
-import StandardModal from './StandardModal';
+import ScreenContainer from '../components/ScreenContainer';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-export default function UpgradePromptModal() {
-  const { showUpgradeModal, setShowUpgradeModal, upgradeToPlus } = useMembership();
+export default function UpgradeScreen({ navigation }) {
+  const { upgradeToPlus } = useMembership();
   const [offerings, setOfferings] = useState(null);
   const [loading, setLoading] = useState(false);
   const [purchasing, setPurchasing] = useState(false);
@@ -28,10 +28,8 @@ export default function UpgradePromptModal() {
   });
 
   useEffect(() => {
-    if (showUpgradeModal) {
-      loadOfferings();
-    }
-  }, [showUpgradeModal]);
+    loadOfferings();
+  }, []);
 
   const loadOfferings = async () => {
     setLoading(true);
@@ -57,7 +55,7 @@ export default function UpgradePromptModal() {
       if (result && result.customerInfo) {
         // Update membership status
         await upgradeToPlus();
-        setShowUpgradeModal(false);
+        navigation.goBack();
       }
     } catch (error) {
       if (!error.userCancelled) {
@@ -76,7 +74,7 @@ export default function UpgradePromptModal() {
 
       if (hasPlus) {
         await upgradeToPlus();
-        setShowUpgradeModal(false);
+        navigation.goBack();
       } else {
         alert('No previous purchases found');
       }
@@ -101,9 +99,8 @@ export default function UpgradePromptModal() {
   ];
 
   return (
-    <StandardModal
-      visible={showUpgradeModal}
-      onClose={() => setShowUpgradeModal(false)}
+    <ScreenContainer
+      onClose={() => navigation.goBack()}
       title="Pomodoro Plus"
       subtitle="Unlock all premium features"
     >
@@ -189,7 +186,7 @@ export default function UpgradePromptModal() {
             Cancel anytime. Terms & Privacy apply.
           </Text>
         </View>
-    </StandardModal>
+    </ScreenContainer>
   );
 }
 

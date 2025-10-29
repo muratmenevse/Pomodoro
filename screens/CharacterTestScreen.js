@@ -3,9 +3,9 @@ import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useFonts, Poppins_600SemiBold, Poppins_400Regular } from '@expo-google-fonts/poppins';
 import TomatoCharacter from '../components/TomatoCharacter';
 import { CHARACTER_STATES } from '../components/characterStates';
-import StandardModal from '../components/StandardModal';
+import ScreenContainer from '../components/ScreenContainer';
 
-export default function CharacterTestScreen({ visible, onClose }) {
+export default function CharacterTestScreen({ navigation }) {
   const [fontsLoaded] = useFonts({
     Poppins_600SemiBold,
     Poppins_400Regular,
@@ -16,9 +16,8 @@ export default function CharacterTestScreen({ visible, onClose }) {
   }
 
   return (
-    <StandardModal
-      visible={visible}
-      onClose={onClose}
+    <ScreenContainer
+      onClose={() => navigation.goBack()}
       title="Character Animations"
       subtitle="Test different animation states"
       scrollable={false}
@@ -56,7 +55,7 @@ export default function CharacterTestScreen({ visible, onClose }) {
       <View style={styles.footer}>
         <Text style={styles.footerText}>Swipe left/right to see all states</Text>
       </View>
-    </StandardModal>
+    </ScreenContainer>
   );
 }
 

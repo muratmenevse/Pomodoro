@@ -1,11 +1,13 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
-import StandardModal from './StandardModal';
-import TomatoCharacter from './TomatoCharacter';
-import { CHARACTER_STATES } from './characterStates';
+import ScreenContainer from '../components/ScreenContainer';
+import TomatoCharacter from '../components/TomatoCharacter';
+import { CHARACTER_STATES } from '../components/characterStates';
 
-export default function SuccessModal({ visible, onClose, onBreak }) {
+export default function SuccessScreen({ navigation, route }) {
+  const { onClose, onBreak } = route.params;
+
   const [fontsLoaded] = useFonts({
     Poppins_400Regular,
     Poppins_600SemiBold,
@@ -16,10 +18,21 @@ export default function SuccessModal({ visible, onClose, onBreak }) {
     return null;
   }
 
+  const handleClose = () => {
+    navigation.goBack();
+    if (onClose) onClose();
+  };
+
+  const handleBreak = () => {
+    navigation.goBack(); // Close Success screen first
+    if (onBreak) {
+      onBreak();
+    }
+  };
+
   return (
-    <StandardModal
-      visible={visible}
-      onClose={onClose}
+    <ScreenContainer
+      onClose={handleClose}
       title=""
       showCloseButton={true}
       scrollable={false}
@@ -42,13 +55,13 @@ export default function SuccessModal({ visible, onClose, onBreak }) {
         {/* Break Button */}
         <TouchableOpacity
           style={styles.breakButton}
-          onPress={onBreak}
+          onPress={handleBreak}
           activeOpacity={0.8}
         >
           <Text style={styles.breakButtonText}>Break</Text>
         </TouchableOpacity>
       </View>
-    </StandardModal>
+    </ScreenContainer>
   );
 }
 

@@ -1,14 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
-import StandardModal from './StandardModal';
-import TomatoCharacter from './TomatoCharacter';
-import { CHARACTER_STATES } from './characterStates';
+import ScreenContainer from '../components/ScreenContainer';
+import TomatoCharacter from '../components/TomatoCharacter';
+import { CHARACTER_STATES } from '../components/characterStates';
 
-const BREAK_DURATION = 300; // 5 minutes in seconds
+const NORMAL_BREAK_DURATION = 300; // 5 minutes in seconds
+const TEST_BREAK_DURATION = 10; // 10 seconds for testing
 
-export default function BreakModal({ visible, onClose }) {
-  const [timeInSeconds, setTimeInSeconds] = useState(BREAK_DURATION);
+export default function BreakScreen({ navigation, route }) {
+  const { onClose, test10SecondMode = false } = route.params || {};
+
+  // Determine break duration based on test mode (only in dev)
+  const breakDuration = (__DEV__ && test10SecondMode) ? TEST_BREAK_DURATION : NORMAL_BREAK_DURATION;
+
+  const [timeInSeconds, setTimeInSeconds] = useState(breakDuration);
   const intervalRef = useRef(null);
 
   const [fontsLoaded] = useFonts({
@@ -17,38 +23,30 @@ export default function BreakModal({ visible, onClose }) {
     Poppins_700Bold,
   });
 
-  // Reset timer when modal becomes visible
+  // Reset timer when screen mounts
   useEffect(() => {
-    if (visible) {
-      setTimeInSeconds(BREAK_DURATION);
-    }
-  }, [visible]);
+    setTimeInSeconds(breakDuration);
+  }, [breakDuration]);
 
   // Countdown logic
   useEffect(() => {
-    if (visible) {
-      intervalRef.current = setInterval(() => {
-        setTimeInSeconds((prevTime) => {
-          if (prevTime <= 1) {
-            clearInterval(intervalRef.current);
-            onClose(); // Return to main menu when break completes
-            return 0;
-          }
-          return prevTime - 1;
-        });
-      }, 1000);
-    } else {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    }
+    intervalRef.current = setInterval(() => {
+      setTimeInSeconds((prevTime) => {
+        if (prevTime <= 1) {
+          clearInterval(intervalRef.current);
+          handleClose(); // Return to main menu when break completes
+          return 0;
+        }
+        return prevTime - 1;
+      });
+    }, 1000);
 
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }
     };
-  }, [visible, onClose]);
+  }, []);
 
   // Format time as MM:SS
   const formatTime = (seconds) => {
@@ -57,14 +55,18 @@ export default function BreakModal({ visible, onClose }) {
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   };
 
+  const handleClose = () => {
+    navigation.goBack();
+    if (onClose) onClose();
+  };
+
   if (!fontsLoaded) {
     return null;
   }
 
   return (
-    <StandardModal
-      visible={visible}
-      onClose={onClose}
+    <ScreenContainer
+      onClose={handleClose}
       title=""
       showCloseButton={false}
     >
@@ -83,13 +85,13 @@ export default function BreakModal({ visible, onClose }) {
         {/* Stop Break Button */}
         <TouchableOpacity
           style={styles.stopButton}
-          onPress={onClose}
+          onPress={handleClose}
           activeOpacity={0.8}
         >
           <Text style={styles.stopButtonText}>Stop Break</Text>
         </TouchableOpacity>
       </View>
-    </StandardModal>
+    </ScreenContainer>
   );
 }
 

@@ -17,11 +17,12 @@ import PadlockIcon from './PadlockIcon';
 export default function PlusMenuItem({
   label,
   onPress,
+  onPlusClick,
   isPlusFeature = false,
   testPlusMode = false,
   style = {},
 }) {
-  const { isPlusMember: actualIsPlusMember, setShowUpgradeModal } = useMembership();
+  const { isPlusMember: actualIsPlusMember } = useMembership();
   const [fontsLoaded] = useFonts({
     Poppins_600SemiBold,
   });
@@ -36,10 +37,10 @@ export default function PlusMenuItem({
   // Determine if we should show the padlock (Plus feature + not a Plus member)
   const showPadlock = isPlusFeature && !isPlusMember;
 
-  // Handle press: if Plus feature and not member, show upgrade modal
+  // Handle press: if Plus feature and not member, call onPlusClick
   const handlePress = () => {
-    if (showPadlock) {
-      setShowUpgradeModal(true);
+    if (showPadlock && onPlusClick) {
+      onPlusClick();
     } else if (onPress) {
       onPress();
     }

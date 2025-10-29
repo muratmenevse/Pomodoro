@@ -6,13 +6,12 @@ import {
   StyleSheet,
 } from 'react-native';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold } from '@expo-google-fonts/poppins';
-import StandardModal from './StandardModal';
-import { useModal } from '../contexts/ModalContext';
+import ScreenContainer from '../components/ScreenContainer';
 
 /**
- * ConfirmationModal - Reusable confirmation dialog
+ * ConfirmationScreen - Reusable confirmation dialog
  *
- * Modal params (passed via openModal):
+ * Route params:
  * - title: Title of the confirmation dialog (default: "Confirm")
  * - message: Message/question to display
  * - confirmText: Text for confirm button (default: "Confirm")
@@ -20,8 +19,7 @@ import { useModal } from '../contexts/ModalContext';
  * - onConfirm: Function to call when user confirms
  * - confirmStyle: 'default' (purple) or 'destructive' (red) (default: 'default')
  */
-export default function ConfirmationModal() {
-  const { visible, params, close, isTop } = useModal('Confirmation');
+export default function ConfirmationScreen({ navigation, route }) {
   const {
     title = 'Confirm',
     message,
@@ -29,14 +27,14 @@ export default function ConfirmationModal() {
     cancelText = 'Cancel',
     onConfirm,
     confirmStyle = 'default',
-  } = params;
+  } = route.params || {};
+
   const [fontsLoaded] = useFonts({
     Poppins_400Regular,
     Poppins_600SemiBold,
   });
 
-  // Only render if this modal is the top-most modal
-  if (!fontsLoaded || !visible || !isTop) {
+  if (!fontsLoaded) {
     return null;
   }
 
@@ -44,13 +42,12 @@ export default function ConfirmationModal() {
     if (onConfirm) {
       onConfirm();
     }
-    close();
+    navigation.goBack();
   };
 
   return (
-    <StandardModal
-      visible={visible}
-      onClose={close}
+    <ScreenContainer
+      onClose={() => navigation.goBack()}
       title={title}
       scrollable={false}
       showCloseButton={false}
@@ -64,7 +61,7 @@ export default function ConfirmationModal() {
       <View style={styles.buttonContainer}>
         <TouchableOpacity
           style={styles.cancelButton}
-          onPress={close}
+          onPress={() => navigation.goBack()}
         >
           <Text style={styles.cancelButtonText}>{cancelText}</Text>
         </TouchableOpacity>
@@ -79,7 +76,7 @@ export default function ConfirmationModal() {
           <Text style={styles.confirmButtonText}>{confirmText}</Text>
         </TouchableOpacity>
       </View>
-    </StandardModal>
+    </ScreenContainer>
   );
 }
 

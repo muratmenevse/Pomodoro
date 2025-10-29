@@ -9,8 +9,7 @@ import {
 } from 'react-native';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
 import { useMembership } from '../contexts/MembershipContext';
-import { useModal, useModalManager } from '../contexts/ModalContext';
-import StandardModal from './StandardModal';
+import ScreenContainer from '../components/ScreenContainer';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -28,12 +27,10 @@ const COLOR_OPTIONS = [
   '#607D8B', // Blue Grey
 ];
 
-export default function AddCategoryModal() {
-  const { visible, params, close, isTop } = useModal('AddCategory');
-  const { openModal } = useModalManager();
+export default function AddCategoryScreen({ navigation, route }) {
   const { addCustomCategory, updateCustomCategory } = useMembership();
 
-  const { onAdd, deleteDefaultCategory, deleteCustomCategory, editingCategory = null } = params;
+  const { onAdd, deleteDefaultCategory, deleteCustomCategory, editingCategory = null } = route.params || {};
 
   const [categoryName, setCategoryName] = useState('');
   const [selectedColor, setSelectedColor] = useState(COLOR_OPTIONS[0]);
@@ -45,24 +42,21 @@ export default function AddCategoryModal() {
     Poppins_700Bold,
   });
 
-  // Initialize form fields when modal opens
+  // Initialize form fields when screen mounts
   useEffect(() => {
-    if (visible) {
-      if (editingCategory) {
-        // Edit mode - populate with existing data
-        setCategoryName(editingCategory.name);
-        setSelectedColor(editingCategory.color);
-      } else {
-        // Add mode - use defaults
-        setCategoryName('');
-        setSelectedColor(COLOR_OPTIONS[0]);
-      }
-      setError('');
+    if (editingCategory) {
+      // Edit mode - populate with existing data
+      setCategoryName(editingCategory.name);
+      setSelectedColor(editingCategory.color);
+    } else {
+      // Add mode - use defaults
+      setCategoryName('');
+      setSelectedColor(COLOR_OPTIONS[0]);
     }
-  }, [visible, editingCategory]);
+    setError('');
+  }, [editingCategory]);
 
-  // Only render if this modal is the top-most modal
-  if (!fontsLoaded || !visible || !isTop) {
+  if (!fontsLoaded) {
     return null;
   }
 
@@ -96,12 +90,12 @@ export default function AddCategoryModal() {
       if (onAdd) {
         onAdd(newCategory);
       }
-      close();
+      navigation.goBack();
     }
   };
 
   const handleDelete = () => {
-    openModal('Confirmation', {
+    navigation.navigate('Confirmation', {
       title: 'Delete Category',
       message: `Are you sure you want to delete "${editingCategory?.name}"? This action cannot be undone.`,
       confirmText: 'Delete',
@@ -119,7 +113,7 @@ export default function AddCategoryModal() {
 
         if (deleteHandler && typeof deleteHandler === 'function') {
           await deleteHandler(editingCategory.name);
-          close();
+          navigation.goBack();
         }
       } catch (error) {
         console.error('Error deleting category:', error);
@@ -129,9 +123,8 @@ export default function AddCategoryModal() {
   };
 
   return (
-    <StandardModal
-      visible={visible}
-      onClose={close}
+    <ScreenContainer
+      onClose={() => navigation.goBack()}
       title={editingCategory ? 'Edit Category' : 'New Category'}
       scrollable={true}
     >
@@ -222,7 +215,7 @@ export default function AddCategoryModal() {
           </Text>
         </TouchableOpacity>
       </View>
-    </StandardModal>
+    </ScreenContainer>
   );
 }
 

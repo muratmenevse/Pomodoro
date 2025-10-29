@@ -11,15 +11,14 @@ import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } fr
 import { useMembership } from '../contexts/MembershipContext';
 import MembershipBadge from '../components/MembershipBadge';
 import RevenueCatService from '../services/RevenueCatService';
-import StandardModal from '../components/StandardModal';
+import ScreenContainer from '../components/ScreenContainer';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-export default function SettingsScreen({ visible, onClose }) {
+export default function SettingsScreen({ navigation }) {
   const {
     isPlusMember,
     membershipTier,
-    setShowUpgradeModal,
     restorePurchases,
   } = useMembership();
 
@@ -52,10 +51,7 @@ export default function SettingsScreen({ visible, onClose }) {
   };
 
   const handleUpgrade = () => {
-    onClose(); // Close settings modal first
-    setTimeout(() => {
-      setShowUpgradeModal(true); // Open upgrade modal after delay
-    }, 300);
+    navigation.navigate('Upgrade');
   };
 
   const settingSections = [
@@ -122,9 +118,8 @@ export default function SettingsScreen({ visible, onClose }) {
   ];
 
   return (
-    <StandardModal
-      visible={visible}
-      onClose={onClose}
+    <ScreenContainer
+      onClose={() => navigation.goBack()}
       title="Settings"
     >
         {settingSections.map((section, sectionIndex) => (
@@ -192,7 +187,7 @@ export default function SettingsScreen({ visible, onClose }) {
             </TouchableOpacity>
           </View>
         )}
-    </StandardModal>
+    </ScreenContainer>
   );
 }
 

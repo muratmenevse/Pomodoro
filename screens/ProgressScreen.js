@@ -11,14 +11,15 @@ import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } fr
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Rect, Text as SvgText, Line } from 'react-native-svg';
 import { useMembership } from '../contexts/MembershipContext';
-import StandardModal from '../components/StandardModal';
+import ScreenContainer from '../components/ScreenContainer';
 import PlusFeatureLock from '../components/PlusFeatureLock';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const COMPLETED_SESSIONS_KEY = '@completed_sessions';
 
-export default function ProgressScreen({ visible, onClose, categories, testPlusMode = false }) {
-  const { isPlusMember: actualIsPlusMember, setShowUpgradeModal } = useMembership();
+export default function ProgressScreen({ navigation, route }) {
+  const { categories = [], testPlusMode = false } = route.params || {};
+  const { isPlusMember: actualIsPlusMember } = useMembership();
   const [sessionData, setSessionData] = useState({});
   const [selectedCategory, setSelectedCategory] = useState('All');
 
@@ -32,10 +33,10 @@ export default function ProgressScreen({ visible, onClose, categories, testPlusM
   });
 
   useEffect(() => {
-    if (visible && isPlusMember) {
+    if (isPlusMember) {
       loadSessionData();
     }
-  }, [visible, isPlusMember]);
+  }, [isPlusMember]);
 
   const loadSessionData = async () => {
     try {
@@ -124,17 +125,15 @@ export default function ProgressScreen({ visible, onClose, categories, testPlusM
   // If not Plus member, show upgrade prompt
   if (!isPlusMember) {
     return (
-      <StandardModal
-        visible={visible}
-        onClose={onClose}
+      <ScreenContainer
+        onClose={() => navigation.goBack()}
         title="Progress"
       >
         <View style={styles.lockContainer}>
           <PlusFeatureLock
             feature="progress"
             onPress={() => {
-              onClose();
-              setTimeout(() => setShowUpgradeModal(true), 300);
+              navigation.navigate('Upgrade');
             }}
           >
             <View style={styles.lockedContent}>
@@ -145,7 +144,7 @@ export default function ProgressScreen({ visible, onClose, categories, testPlusM
             </View>
           </PlusFeatureLock>
         </View>
-      </StandardModal>
+      </ScreenContainer>
     );
   }
 
@@ -173,9 +172,8 @@ export default function ProgressScreen({ visible, onClose, categories, testPlusM
   };
 
   return (
-    <StandardModal
-      visible={visible}
-      onClose={onClose}
+    <ScreenContainer
+      onClose={() => navigation.goBack()}
       title="Progress"
       isPlusFeature={true}
     >
@@ -294,7 +292,7 @@ export default function ProgressScreen({ visible, onClose, categories, testPlusM
           })}
         </Svg>
       </View>
-    </StandardModal>
+    </ScreenContainer>
   );
 }
 

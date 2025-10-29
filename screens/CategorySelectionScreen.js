@@ -2,19 +2,16 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold } from '@expo-google-fonts/poppins';
 import { useMembership } from '../contexts/MembershipContext';
-import { useModal, useModalManager } from '../contexts/ModalContext';
-import MembershipBadge from './MembershipBadge';
-import StandardModal from './StandardModal';
-import PadlockIcon from './PadlockIcon';
+import MembershipBadge from '../components/MembershipBadge';
+import ScreenContainer from '../components/ScreenContainer';
+import PadlockIcon from '../components/PadlockIcon';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-export default function CategorySelectionModal() {
-  const { visible, params, close, isTop } = useModal('CategorySelection');
-  const { openModal } = useModalManager();
-  const { customCategories, isPlusMember: actualIsPlusMember, deleteCustomCategory, setShowUpgradeModal } = useMembership();
+export default function CategorySelectionScreen({ navigation, route }) {
+  const { customCategories, isPlusMember: actualIsPlusMember, deleteCustomCategory } = useMembership();
 
-  const { categories, selectedCategory, onSelect, testPlusMode = false, deleteDefaultCategory } = params;
+  const { categories, selectedCategory, onSelect, testPlusMode = false, deleteDefaultCategory, onPlusClick } = route.params || {};
 
   // In dev mode, allow testPlusMode to override actual membership
   const isPlusMember = __DEV__ && testPlusMode ? true : actualIsPlusMember;
@@ -23,8 +20,7 @@ export default function CategorySelectionModal() {
     Poppins_600SemiBold,
   });
 
-  // Only render if this modal is the top-most modal
-  if (!fontsLoaded || !visible || !isTop) {
+  if (!fontsLoaded) {
     return null;
   }
 
@@ -32,7 +28,7 @@ export default function CategorySelectionModal() {
   const allCategories = [...categories, ...customCategories];
 
   const handleEditCategory = (category) => {
-    openModal('AddCategory', {
+    navigation.navigate('AddCategory', {
       editingCategory: category,
       deleteDefaultCategory,
       deleteCustomCategory,
@@ -41,7 +37,7 @@ export default function CategorySelectionModal() {
   };
 
   const handleAddNewCategory = () => {
-    openModal('AddCategory', {
+    navigation.navigate('AddCategory', {
       deleteDefaultCategory,
       deleteCustomCategory,
       onAdd: () => {}, // Category is automatically added to context
@@ -49,9 +45,8 @@ export default function CategorySelectionModal() {
   };
 
   return (
-    <StandardModal
-      visible={visible}
-      onClose={close}
+    <ScreenContainer
+      onClose={() => navigation.goBack()}
       title="Categories"
       showMembershipBadge={isPlusMember && <MembershipBadge style={styles.membershipBadge} />}
     >
@@ -67,8 +62,8 @@ export default function CategorySelectionModal() {
         <TouchableOpacity
           style={[styles.addButton, styles.addButtonContainer]}
           onPress={() => {
-            close();
-            setShowUpgradeModal(true);
+            navigation.goBack();
+            if (onPlusClick) onPlusClick();
           }}
         >
           <PadlockIcon style={styles.padlockIcon} />
@@ -89,7 +84,7 @@ export default function CategorySelectionModal() {
                 ]}
                 onPress={() => {
                   onSelect(category.name);
-                  close();
+                  navigation.goBack();
                 }}
               >
                 {/* Color circle */}
@@ -117,7 +112,7 @@ export default function CategorySelectionModal() {
             );
           })}
       </View>
-    </StandardModal>
+    </ScreenContainer>
   );
 }
 

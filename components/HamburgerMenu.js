@@ -9,7 +9,7 @@ import {
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold } from '@expo-google-fonts/poppins';
 import PlusMenuItem from './PlusMenuItem';
 
-export default function HamburgerMenu({ visible, onClose, onSettings, onProgress, onTest, testPlusMode = false }) {
+export default function HamburgerMenu({ visible, onClose, onSettings, onProgress, onPlusClick, onTest, testPlusMode = false }) {
   const [fontsLoaded] = useFonts({
     Poppins_400Regular,
     Poppins_600SemiBold,
@@ -41,6 +41,10 @@ export default function HamburgerMenu({ visible, onClose, onSettings, onProgress
             onPress={() => {
               onClose();
               onProgress();
+            }}
+            onPlusClick={() => {
+              onClose();
+              onPlusClick();
             }}
           />
 
