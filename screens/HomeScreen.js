@@ -1,6 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Dimensions } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Dimensions, AppState } from 'react-native';
 import { RulerPicker } from 'react-native-ruler-picker';
 import { Audio } from 'expo-av';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
@@ -11,6 +11,7 @@ import { MembershipProvider, useMembership } from '../contexts/MembershipContext
 import HamburgerMenu from '../components/HamburgerMenu';
 import TestSettingsModal from '../components/TestSettingsModal';
 import RevenueCatService from '../services/RevenueCatService';
+import NotificationService from '../services/NotificationService';
 import Svg, { Path } from 'react-native-svg';
 
 // Get screen dimensions for responsive design
@@ -41,6 +42,10 @@ const CATEGORIES_LIST_KEY = '@categories_list';
 const COMPLETED_SESSIONS_KEY = '@completed_sessions';
 const TEST_PAGES_KEY = '@test_pages';
 const TEST_10_SECOND_MODE_KEY = '@test_10_second_mode';
+const TIMER_END_TIME_KEY = '@active_timer_end_time';
+const TIMER_NOTIFICATION_ID_KEY = '@active_timer_notification_id';
+const TIMER_SESSION_MINUTES_KEY = '@active_timer_session_minutes';
+const TIMER_CATEGORY_KEY = '@active_timer_category';
 
 // Timer configuration objects (Strategy Pattern)
 const TIMER_CONFIGS = {
@@ -101,6 +106,7 @@ export default function HomeScreen({ navigation }) {
   const [showTestSettingsModal, setShowTestSettingsModal] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
   const [sessionStartMinutes, setSessionStartMinutes] = useState(initialMinutes);
+  const [scheduledNotificationId, setScheduledNotificationId] = useState(null);
 
   // Test mode state for test pages (dev only)
   const [showTestPages, setShowTestPages] = useState(false);
@@ -133,6 +139,70 @@ export default function HomeScreen({ navigation }) {
         }
       : undefined;
   }, [sound]);
+
+  // Request notification permissions on mount
+  useEffect(() => {
+    NotificationService.requestPermissions();
+  }, []);
+
+  // Monitor app state to check timer completion when returning to foreground
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', async (nextAppState) => {
+      if (nextAppState === 'active') {
+        // App came to foreground, check if timer was running
+        try {
+          const endTimeStr = await AsyncStorage.getItem(TIMER_END_TIME_KEY);
+          if (endTimeStr) {
+            const endTime = parseInt(endTimeStr, 10);
+            const now = Date.now();
+
+            if (now >= endTime) {
+              // Timer completed while app was in background
+              const sessionMinutesStr = await AsyncStorage.getItem(TIMER_SESSION_MINUTES_KEY);
+              const categoryName = await AsyncStorage.getItem(TIMER_CATEGORY_KEY);
+              const sessionMinutes = sessionMinutesStr ? parseInt(sessionMinutesStr, 10) : sliderMinutes;
+
+              // Save completed session
+              await saveCompletedSession(categoryName || selectedCategory, sessionMinutes);
+
+              // Clear timer state
+              await AsyncStorage.multiRemove([
+                TIMER_END_TIME_KEY,
+                TIMER_NOTIFICATION_ID_KEY,
+                TIMER_SESSION_MINUTES_KEY,
+                TIMER_CATEGORY_KEY
+              ]);
+
+              // Update UI
+              setIsRunning(false);
+              setIsCompleted(true);
+              setScheduledNotificationId(null);
+
+              // Navigate to success screen
+              navigation.navigate('Success', {
+                onClose: resetTimer,
+                onBreak: () => navigation.navigate('Break', {
+                  onClose: resetTimer,
+                  test10SecondMode
+                }),
+              });
+            } else {
+              // Timer still running, update display with remaining time
+              const remainingSeconds = Math.ceil((endTime - now) / 1000);
+              setTimeInSeconds(remainingSeconds);
+              setIsRunning(true);
+            }
+          }
+        } catch (error) {
+          console.log('Error checking timer state:', error);
+        }
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
   // Load saved category times and selected category on app start
   useEffect(() => {
@@ -229,6 +299,19 @@ export default function HomeScreen({ navigation }) {
             playNotificationSound();
             // Save completed session
             saveCompletedSession(selectedCategory, sessionStartMinutes);
+            // Send success notification (immediate, scheduled one will also fire)
+            NotificationService.sendSuccessNotification(sessionStartMinutes);
+
+            // Clear timer state from AsyncStorage since timer completed
+            AsyncStorage.multiRemove([
+              TIMER_END_TIME_KEY,
+              TIMER_NOTIFICATION_ID_KEY,
+              TIMER_SESSION_MINUTES_KEY,
+              TIMER_CATEGORY_KEY
+            ]).catch(err => console.log('Error clearing timer state:', err));
+
+            setScheduledNotificationId(null);
+
             // Navigate to success screen
             navigation.navigate('Success', {
               onClose: resetTimer,
@@ -353,7 +436,7 @@ export default function HomeScreen({ navigation }) {
     }
   };
 
-  const handleStartFocus = () => {
+  const handleStartFocus = async () => {
     setIsRunning(true);
     setIsCompleted(false);
 
@@ -361,6 +444,25 @@ export default function HomeScreen({ navigation }) {
     const minutes = timerConfig.useSlider ? sliderMinutes : timerConfig.defaultMinutes;
     setSessionStartMinutes(minutes);
     setTimeInSeconds(minutes * 60);
+
+    // Schedule notification for completion time
+    const notificationId = await NotificationService.scheduleTimerCompletion(
+      minutes,
+      minutes,
+      selectedCategory
+    );
+    setScheduledNotificationId(notificationId);
+
+    // Save timer state to AsyncStorage for background recovery
+    const endTime = Date.now() + (minutes * 60 * 1000);
+    try {
+      await AsyncStorage.setItem(TIMER_END_TIME_KEY, endTime.toString());
+      await AsyncStorage.setItem(TIMER_NOTIFICATION_ID_KEY, notificationId || '');
+      await AsyncStorage.setItem(TIMER_SESSION_MINUTES_KEY, minutes.toString());
+      await AsyncStorage.setItem(TIMER_CATEGORY_KEY, selectedCategory);
+    } catch (error) {
+      console.log('Error saving timer state:', error);
+    }
   };
 
   const handleGiveUp = () => {
@@ -374,11 +476,29 @@ export default function HomeScreen({ navigation }) {
     });
   };
 
-  const handleReset = () => {
+  const handleReset = async () => {
     setIsRunning(false);
     setIsCompleted(false);
     setTimeInSeconds(timerConfig.defaultMinutes * 60);
     setSliderMinutes(timerConfig.defaultMinutes);
+
+    // Cancel scheduled notification
+    if (scheduledNotificationId) {
+      await NotificationService.cancelScheduledTimer(scheduledNotificationId);
+      setScheduledNotificationId(null);
+    }
+
+    // Clear timer state from AsyncStorage
+    try {
+      await AsyncStorage.multiRemove([
+        TIMER_END_TIME_KEY,
+        TIMER_NOTIFICATION_ID_KEY,
+        TIMER_SESSION_MINUTES_KEY,
+        TIMER_CATEGORY_KEY
+      ]);
+    } catch (error) {
+      console.log('Error clearing timer state:', error);
+    }
   };
 
   // Reset timer after success/break (called from screens via navigation events)
