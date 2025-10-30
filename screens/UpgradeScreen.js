@@ -91,11 +91,8 @@ export default function UpgradeScreen({ navigation }) {
   }
 
   const plusFeatures = [
-    { icon: '➕', title: 'Unlimited Categories', description: 'Create custom categories beyond the default 4' },
-    { icon: '📊', title: 'Analytics & Charts', description: 'Track your productivity with detailed charts' },
-    { icon: '🎨', title: 'Custom Themes', description: 'Personalize with dark mode and custom colors' },
-    { icon: '☁️', title: 'Cloud Sync', description: 'Sync your data across all devices' },
-    { icon: '📈', title: 'Unlimited History', description: 'Keep all your focus session history' },
+    { icon: '➕', title: 'Custom Categories', description: 'Create and manage unlimited custom focus categories' },
+    { icon: '📊', title: 'Progress Analytics', description: 'Track your productivity with detailed charts and insights' },
   ];
 
   return (

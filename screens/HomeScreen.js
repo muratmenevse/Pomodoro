@@ -94,7 +94,6 @@ export default function HomeScreen({ navigation }) {
   const [timeInSeconds, setTimeInSeconds] = useState(initialMinutes * 60);
   const [sliderMinutes, setSliderMinutes] = useState(initialMinutes);
   const [isRunning, setIsRunning] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
   const intervalRef = useRef(null);
   const [sound, setSound] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState('Focus');
@@ -211,7 +210,7 @@ export default function HomeScreen({ navigation }) {
 
   // Update timer display when test mode changes
   useEffect(() => {
-    if (!isRunning && !isPaused) {
+    if (!isRunning) {
       const minutes = timerConfig.defaultMinutes;
       setTimeInSeconds(minutes * 60);
       setSliderMinutes(minutes);
@@ -220,7 +219,7 @@ export default function HomeScreen({ navigation }) {
 
   // Countdown logic
   useEffect(() => {
-    if (isRunning && !isPaused) {
+    if (isRunning) {
       intervalRef.current = setInterval(() => {
         setTimeInSeconds((prevTime) => {
           if (prevTime <= 1) {
@@ -254,7 +253,7 @@ export default function HomeScreen({ navigation }) {
         clearInterval(intervalRef.current);
       }
     };
-  }, [isRunning, isPaused]);
+  }, [isRunning]);
 
   // Format time as MM:SS
   const formatTime = (seconds) => {
@@ -356,7 +355,6 @@ export default function HomeScreen({ navigation }) {
 
   const handleStartFocus = () => {
     setIsRunning(true);
-    setIsPaused(false);
     setIsCompleted(false);
 
     // Use timer config to determine duration
@@ -365,17 +363,19 @@ export default function HomeScreen({ navigation }) {
     setTimeInSeconds(minutes * 60);
   };
 
-  const handlePause = () => {
-    setIsPaused(true);
-  };
-
-  const handleResume = () => {
-    setIsPaused(false);
+  const handleGiveUp = () => {
+    navigation.navigate('Confirmation', {
+      title: 'Are you sure you want to give up?',
+      message: 'If you quit now, your progress won\'t be saved',
+      confirmText: 'Give Up',
+      cancelText: 'No',
+      confirmStyle: 'destructive',
+      onConfirm: handleReset,
+    });
   };
 
   const handleReset = () => {
     setIsRunning(false);
-    setIsPaused(false);
     setIsCompleted(false);
     setTimeInSeconds(timerConfig.defaultMinutes * 60);
     setSliderMinutes(timerConfig.defaultMinutes);
@@ -429,7 +429,7 @@ export default function HomeScreen({ navigation }) {
     if (isCompleted) {
       return CHARACTER_STATES.COMPLETED;
     }
-    if (isRunning && !isPaused) {
+    if (isRunning) {
       return CHARACTER_STATES.FOCUSING;
     }
     return CHARACTER_STATES.IDLE;
@@ -437,31 +437,19 @@ export default function HomeScreen({ navigation }) {
 
   // Render buttons based on state
   const renderButtons = () => {
-    if (!isRunning && !isPaused) {
+    if (!isRunning) {
       // Initial state: Show "Start Focus"
       return (
         <TouchableOpacity style={styles.singleButton} onPress={handleStartFocus}>
           <Text style={styles.buttonText}>Start Focus</Text>
         </TouchableOpacity>
       );
-    } else if (isRunning && !isPaused) {
-      // Running state: Show minimalist "Pause"
-      return (
-        <TouchableOpacity style={styles.pauseMinimalist} onPress={handlePause}>
-          <Text style={styles.pauseText}>Pause</Text>
-        </TouchableOpacity>
-      );
     } else {
-      // Paused state: Show "Resume" and "Reset"
+      // Running state: Show minimalist "Give Up"
       return (
-        <View style={styles.buttonRow}>
-          <TouchableOpacity style={styles.button} onPress={handleResume}>
-            <Text style={styles.buttonText}>Resume</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.button, styles.resetButton]} onPress={handleReset}>
-            <Text style={styles.buttonText}>Reset</Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity style={styles.pauseMinimalist} onPress={handleGiveUp}>
+          <Text style={styles.pauseText}>Give Up</Text>
+        </TouchableOpacity>
       );
     }
   };
@@ -478,10 +466,10 @@ export default function HomeScreen({ navigation }) {
   return (
     <View style={[
       styles.container,
-      (isRunning || isPaused) && styles.containerFocusMode
+      isRunning && styles.containerFocusMode
     ]}>
       {/* Hamburger Menu Button - hide during focus mode */}
-      {!(isRunning || isPaused) && (
+      {!isRunning && (
         <TouchableOpacity
           style={styles.settingsButton}
           onPress={() => setShowHamburgerMenu(true)}
@@ -517,7 +505,7 @@ export default function HomeScreen({ navigation }) {
       </TouchableOpacity>
 
       {/* Ruler Picker or Test Mode indicator - only show when not running */}
-      {!isRunning && !isPaused && (
+      {!isRunning && (
         <View style={styles.rulerContainer}>
           {timerConfig.useSlider ? (
             <RulerPicker
@@ -551,7 +539,7 @@ export default function HomeScreen({ navigation }) {
       {renderButtons()}
 
       {/* Test Animations Button - only when test pages enabled and not in focus mode */}
-      {__DEV__ && showTestPages && !(isRunning || isPaused) && (
+      {__DEV__ && showTestPages && !isRunning && (
         <TouchableOpacity
           style={styles.devButton}
           onPress={() => setShowTestScreen(true)}
