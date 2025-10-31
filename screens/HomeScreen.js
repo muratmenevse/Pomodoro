@@ -1,6 +1,7 @@
 import { StatusBar } from 'expo-status-bar';
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Dimensions, AppState } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { RulerPicker } from 'react-native-ruler-picker';
 import { Audio } from 'expo-av';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
@@ -11,6 +12,7 @@ import { MembershipProvider, useMembership } from '../contexts/MembershipContext
 import HamburgerMenu from '../components/HamburgerMenu';
 import TestSettingsModal from '../components/TestSettingsModal';
 import RevenueCatService from '../services/RevenueCatService';
+import TimerNotificationManager from '../services/TimerNotificationManager';
 import NotificationService from '../services/NotificationService';
 import Svg, { Path } from 'react-native-svg';
 
@@ -43,7 +45,6 @@ const COMPLETED_SESSIONS_KEY = '@completed_sessions';
 const TEST_PAGES_KEY = '@test_pages';
 const TEST_10_SECOND_MODE_KEY = '@test_10_second_mode';
 const TIMER_END_TIME_KEY = '@active_timer_end_time';
-const TIMER_NOTIFICATION_ID_KEY = '@active_timer_notification_id';
 const TIMER_SESSION_MINUTES_KEY = '@active_timer_session_minutes';
 const TIMER_CATEGORY_KEY = '@active_timer_category';
 
@@ -106,7 +107,6 @@ export default function HomeScreen({ navigation }) {
   const [showTestSettingsModal, setShowTestSettingsModal] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
   const [sessionStartMinutes, setSessionStartMinutes] = useState(initialMinutes);
-  const [scheduledNotificationId, setScheduledNotificationId] = useState(null);
 
   // Test mode state for test pages (dev only)
   const [showTestPages, setShowTestPages] = useState(false);
@@ -122,7 +122,7 @@ export default function HomeScreen({ navigation }) {
   const playNotificationSound = async () => {
     try {
       const { sound } = await Audio.Sound.createAsync(
-        require('./assets/sounds/successSound.m4a')
+        require('../assets/sounds/successSound.m4a')
       );
       setSound(sound);
       await sound.playAsync();
@@ -168,29 +168,27 @@ export default function HomeScreen({ navigation }) {
               // Clear timer state
               await AsyncStorage.multiRemove([
                 TIMER_END_TIME_KEY,
-                TIMER_NOTIFICATION_ID_KEY,
                 TIMER_SESSION_MINUTES_KEY,
                 TIMER_CATEGORY_KEY
               ]);
 
-              // Update UI
-              setIsRunning(false);
-              setIsCompleted(true);
-              setScheduledNotificationId(null);
+              // Clear notification
+              await TimerNotificationManager.clearFromStorage();
 
-              // Navigate to success screen
-              navigation.navigate('Success', {
-                onClose: resetTimer,
-                onBreak: () => navigation.navigate('Break', {
-                  onClose: resetTimer,
-                  test10SecondMode
-                }),
-              });
+              // Update UI and navigate (deferred to avoid render-time state updates)
+              setTimeout(() => {
+                setIsRunning(false);
+                setIsCompleted(true);
+
+                navigation.navigate('Success', { test10SecondMode });
+              }, 0);
             } else {
               // Timer still running, update display with remaining time
               const remainingSeconds = Math.ceil((endTime - now) / 1000);
-              setTimeInSeconds(remainingSeconds);
-              setIsRunning(true);
+              setTimeout(() => {
+                setTimeInSeconds(remainingSeconds);
+                setIsRunning(true);
+              }, 0);
             }
           }
         } catch (error) {
@@ -287,6 +285,17 @@ export default function HomeScreen({ navigation }) {
     }
   }, [test10SecondMode]);
 
+  // Reset timer when returning from Success or Break screens
+  useFocusEffect(
+    useCallback(() => {
+      if (isCompleted) {
+        setIsCompleted(false);
+        setTimeInSeconds(timerConfig.defaultMinutes * 60);
+        setSliderMinutes(timerConfig.defaultMinutes);
+      }
+    }, [isCompleted, timerConfig.defaultMinutes])
+  );
+
   // Countdown logic
   useEffect(() => {
     if (isRunning) {
@@ -299,27 +308,21 @@ export default function HomeScreen({ navigation }) {
             playNotificationSound();
             // Save completed session
             saveCompletedSession(selectedCategory, sessionStartMinutes);
-            // Send success notification (immediate, scheduled one will also fire)
-            NotificationService.sendSuccessNotification(sessionStartMinutes);
 
             // Clear timer state from AsyncStorage since timer completed
             AsyncStorage.multiRemove([
               TIMER_END_TIME_KEY,
-              TIMER_NOTIFICATION_ID_KEY,
               TIMER_SESSION_MINUTES_KEY,
               TIMER_CATEGORY_KEY
             ]).catch(err => console.log('Error clearing timer state:', err));
 
-            setScheduledNotificationId(null);
+            // Cancel scheduled notification since timer completed in foreground
+            TimerNotificationManager.cancel().catch(err => console.log('Error canceling notification:', err));
 
-            // Navigate to success screen
-            navigation.navigate('Success', {
-              onClose: resetTimer,
-              onBreak: () => navigation.navigate('Break', {
-                onClose: resetTimer,
-                test10SecondMode
-              }),
-            });
+            // Navigate to success screen (deferred to avoid render-time navigation)
+            setTimeout(() => {
+              navigation.navigate('Success', { test10SecondMode });
+            }, 0);
             return 0;
           }
           return prevTime - 1;
@@ -446,18 +449,12 @@ export default function HomeScreen({ navigation }) {
     setTimeInSeconds(minutes * 60);
 
     // Schedule notification for completion time
-    const notificationId = await NotificationService.scheduleTimerCompletion(
-      minutes,
-      minutes,
-      selectedCategory
-    );
-    setScheduledNotificationId(notificationId);
+    await TimerNotificationManager.scheduleCompletion(minutes, minutes, selectedCategory);
 
     // Save timer state to AsyncStorage for background recovery
     const endTime = Date.now() + (minutes * 60 * 1000);
     try {
       await AsyncStorage.setItem(TIMER_END_TIME_KEY, endTime.toString());
-      await AsyncStorage.setItem(TIMER_NOTIFICATION_ID_KEY, notificationId || '');
       await AsyncStorage.setItem(TIMER_SESSION_MINUTES_KEY, minutes.toString());
       await AsyncStorage.setItem(TIMER_CATEGORY_KEY, selectedCategory);
     } catch (error) {
@@ -483,29 +480,18 @@ export default function HomeScreen({ navigation }) {
     setSliderMinutes(timerConfig.defaultMinutes);
 
     // Cancel scheduled notification
-    if (scheduledNotificationId) {
-      await NotificationService.cancelScheduledTimer(scheduledNotificationId);
-      setScheduledNotificationId(null);
-    }
+    await TimerNotificationManager.cancel();
 
     // Clear timer state from AsyncStorage
     try {
       await AsyncStorage.multiRemove([
         TIMER_END_TIME_KEY,
-        TIMER_NOTIFICATION_ID_KEY,
         TIMER_SESSION_MINUTES_KEY,
         TIMER_CATEGORY_KEY
       ]);
     } catch (error) {
       console.log('Error clearing timer state:', error);
     }
-  };
-
-  // Reset timer after success/break (called from screens via navigation events)
-  const resetTimer = () => {
-    setIsCompleted(false);
-    setTimeInSeconds(timerConfig.defaultMinutes * 60);
-    setSliderMinutes(timerConfig.defaultMinutes);
   };
 
   const handleSliderChange = async (value) => {
@@ -607,22 +593,24 @@ export default function HomeScreen({ navigation }) {
       <TomatoCharacter size={TOMATO_SIZE} state={getCharacterState()} />
 
       {/* Timer Display */}
-      <Text style={styles.timerText}>{formatTime(timeInSeconds)}</Text>
+      <Text style={[styles.timerText, isRunning && styles.timerTextFocusMode]}>{formatTime(timeInSeconds)}</Text>
 
       {/* Category Label */}
-      <TouchableOpacity
-        style={[styles.categoryPill, { backgroundColor: getCategoryColor(selectedCategory) }]}
-        onPress={() => navigation.navigate('CategorySelection', {
-          categories,
-          selectedCategory,
-          onSelect: handleCategoryChange,
-          testPlusMode,
-          deleteDefaultCategory,
-          onPlusClick: () => navigation.navigate('Upgrade'),
-        })}
-      >
-        <Text style={styles.categoryLabel}>{selectedCategory}</Text>
-      </TouchableOpacity>
+      {!isRunning && (
+        <TouchableOpacity
+          style={[styles.categoryPill, { backgroundColor: getCategoryColor(selectedCategory) }]}
+          onPress={() => navigation.navigate('CategorySelection', {
+            categories,
+            selectedCategory,
+            onSelect: handleCategoryChange,
+            testPlusMode,
+            deleteDefaultCategory,
+            onPlusClick: () => navigation.navigate('Upgrade'),
+          })}
+        >
+          <Text style={styles.categoryLabel}>{selectedCategory}</Text>
+        </TouchableOpacity>
+      )}
 
       {/* Ruler Picker or Test Mode indicator - only show when not running */}
       {!isRunning && (
@@ -662,7 +650,7 @@ export default function HomeScreen({ navigation }) {
       {__DEV__ && showTestPages && !isRunning && (
         <TouchableOpacity
           style={styles.devButton}
-          onPress={() => setShowTestScreen(true)}
+          onPress={() => navigation.navigate('CharacterTest')}
         >
           <Text style={styles.devButtonText}>🎨 Test Animations</Text>
         </TouchableOpacity>
@@ -718,7 +706,7 @@ const styles = StyleSheet.create({
   containerFocusMode: {
     justifyContent: 'center',
     paddingTop: 0,
-    marginTop: -40,
+    marginTop: 0,
   },
   timerText: {
     fontSize: TIMER_FONT_SIZE,
@@ -727,6 +715,9 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginBottom: 10,
     letterSpacing: 1,
+  },
+  timerTextFocusMode: {
+    fontSize: TIMER_FONT_SIZE * 1.15,
   },
   categoryPill: {
     paddingHorizontal: 12,
@@ -809,8 +800,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   pauseMinimalist: {
-    marginTop: BUTTON_MARGIN_TOP,
-    marginBottom: 10,
+    marginTop: BUTTON_MARGIN_TOP + 90,
     alignItems: 'center',
   },
   pauseText: {

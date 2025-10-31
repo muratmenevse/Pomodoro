@@ -9,7 +9,7 @@ const NORMAL_BREAK_DURATION = 300; // 5 minutes in seconds
 const TEST_BREAK_DURATION = 10; // 10 seconds for testing
 
 export default function BreakScreen({ navigation, route }) {
-  const { onClose, test10SecondMode = false } = route.params || {};
+  const { test10SecondMode = false } = route.params || {};
 
   // Determine break duration based on test mode (only in dev)
   const breakDuration = (__DEV__ && test10SecondMode) ? TEST_BREAK_DURATION : NORMAL_BREAK_DURATION;
@@ -34,7 +34,10 @@ export default function BreakScreen({ navigation, route }) {
       setTimeInSeconds((prevTime) => {
         if (prevTime <= 1) {
           clearInterval(intervalRef.current);
-          handleClose(); // Return to main menu when break completes
+          // Defer navigation to avoid render-time state updates
+          setTimeout(() => {
+            handleClose();
+          }, 0);
           return 0;
         }
         return prevTime - 1;
@@ -57,7 +60,6 @@ export default function BreakScreen({ navigation, route }) {
 
   const handleClose = () => {
     navigation.goBack();
-    if (onClose) onClose();
   };
 
   if (!fontsLoaded) {

@@ -52,11 +52,16 @@ export default function TomatoCharacter({ size = 150, state = CHARACTER_STATES.I
   // Playful bounce and wiggle animation for completed state (continuous loop)
   useEffect(() => {
     if (state === CHARACTER_STATES.COMPLETED) {
+      // Scale bounce values proportionally to size (default size is 150)
+      const sizeRatio = size / 150;
+      const bigBounce = -25 * sizeRatio;
+      const smallBounce = -15 * sizeRatio;
+
       // Continuous bouncing loop
       bounceAnimRef.current = Animated.loop(
         Animated.sequence([
           Animated.timing(bounceAnim, {
-            toValue: -25,
+            toValue: bigBounce,
             duration: 400,
             useNativeDriver: true,
           }),
@@ -66,7 +71,7 @@ export default function TomatoCharacter({ size = 150, state = CHARACTER_STATES.I
             useNativeDriver: true,
           }),
           Animated.timing(bounceAnim, {
-            toValue: -15,
+            toValue: smallBounce,
             duration: 300,
             useNativeDriver: true,
           }),
@@ -119,7 +124,7 @@ export default function TomatoCharacter({ size = 150, state = CHARACTER_STATES.I
         wiggleAnimRef.current.stop();
       }
     };
-  }, [state]);
+  }, [state, size]);
 
   // Gentle sway and steam animation for break state
   useEffect(() => {

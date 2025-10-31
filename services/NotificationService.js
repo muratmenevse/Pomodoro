@@ -5,7 +5,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // Configure how notifications should behave when app is in foreground
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
   }),
@@ -148,7 +149,7 @@ class NotificationService {
             category: categoryName,
           },
         },
-        trigger: triggerDate,
+        trigger: { type: 'date', date: triggerDate },
       });
 
       console.log(`Timer notification scheduled for ${triggerDate.toLocaleTimeString()}, ID: ${notificationId}`);

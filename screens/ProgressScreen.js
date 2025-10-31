@@ -13,6 +13,8 @@ import Svg, { Rect, Text as SvgText, Line } from 'react-native-svg';
 import { useMembership } from '../contexts/MembershipContext';
 import ScreenContainer from '../components/ScreenContainer';
 import PlusFeatureLock from '../components/PlusFeatureLock';
+import TomatoCharacter from '../components/TomatoCharacter';
+import { CHARACTER_STATES } from '../components/characterStates';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const COMPLETED_SESSIONS_KEY = '@completed_sessions';
@@ -118,6 +120,20 @@ export default function ProgressScreen({ navigation, route }) {
     return categoriesWithSessions.length > 0 ? categoriesWithSessions : categories;
   };
 
+  // Get total completed sessions for the current week
+  const getWeeklyCompletedSessions = () => {
+    const last7Days = getLast7Days();
+    let totalSessions = 0;
+
+    last7Days.forEach(date => {
+      const dateString = date.toISOString().split('T')[0];
+      const sessions = sessionData[dateString] || [];
+      totalSessions += sessions.length;
+    });
+
+    return totalSessions;
+  };
+
   if (!fontsLoaded) {
     return null;
   }
@@ -156,6 +172,7 @@ export default function ProgressScreen({ navigation, route }) {
 
   const maxMinutes = Math.max(...chartData.map(d => d.minutes), 60); // At least 60 min scale
   const filteredCategories = getCategoriesWithSessions();
+  const weeklyCompletedSessions = getWeeklyCompletedSessions();
   const chartHeight = 200;
   const chartWidth = SCREEN_WIDTH - 80;
   const barWidth = chartWidth / 7 - 10;
@@ -292,6 +309,18 @@ export default function ProgressScreen({ navigation, route }) {
           })}
         </Svg>
       </View>
+
+      {/* Tomidos Section - only show if more than 1 completed session */}
+      {weeklyCompletedSessions > 1 && (
+        <View style={styles.tomidosSection}>
+          <Text style={styles.tomidosTitle}>Tomidos</Text>
+          <View style={styles.tomidosContent}>
+            <TomatoCharacter size={44} state={CHARACTER_STATES.COMPLETED} />
+            <Text style={styles.tomidosText}>x {weeklyCompletedSessions}</Text>
+            <Text style={styles.tomidosText}>Happy Tomidos</Text>
+          </View>
+        </View>
+      )}
     </ScreenContainer>
   );
 }
@@ -344,5 +373,26 @@ const styles = StyleSheet.create({
   chartContainer: {
     alignItems: 'center',
     marginBottom: 30,
+  },
+  tomidosSection: {
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  tomidosTitle: {
+    fontSize: 18,
+    fontFamily: 'Poppins_600SemiBold',
+    color: '#2C3E50',
+    marginBottom: 15,
+  },
+  tomidosContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 15,
+  },
+  tomidosText: {
+    fontSize: 16,
+    fontFamily: 'Poppins_400Regular',
+    color: '#2C3E50',
   },
 });

@@ -6,7 +6,7 @@ import TomatoCharacter from '../components/TomatoCharacter';
 import { CHARACTER_STATES } from '../components/characterStates';
 
 export default function SuccessScreen({ navigation, route }) {
-  const { onClose, onBreak } = route.params;
+  const { test10SecondMode = false } = route.params || {};
 
   const [fontsLoaded] = useFonts({
     Poppins_400Regular,
@@ -20,14 +20,10 @@ export default function SuccessScreen({ navigation, route }) {
 
   const handleClose = () => {
     navigation.goBack();
-    if (onClose) onClose();
   };
 
   const handleBreak = () => {
-    navigation.goBack(); // Close Success screen first
-    if (onBreak) {
-      onBreak();
-    }
+    navigation.replace('Break', { test10SecondMode });
   };
 
   return (
