@@ -24,6 +24,7 @@ export default function ProgressScreen({ navigation, route }) {
   const { isPlusMember: actualIsPlusMember } = useMembership();
   const [sessionData, setSessionData] = useState({});
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [selectedView, setSelectedView] = useState('week'); // 'week', 'month', 'year'
 
   // In dev mode, allow testPlusMode to override actual membership
   const isPlusMember = __DEV__ && testPlusMode ? true : actualIsPlusMember;
@@ -51,15 +52,73 @@ export default function ProgressScreen({ navigation, route }) {
     }
   };
 
-  // Get last 7 days
-  const getLast7Days = () => {
+  // Get current week's days (Monday - Sunday)
+  const getCurrentWeekDays = () => {
+    const today = new Date();
+    const dayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    const monday = new Date(today);
+    // Adjust to get Monday (if today is Sunday, go back 6 days, otherwise go back (dayOfWeek - 1))
+    monday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+
     const days = [];
-    for (let i = 6; i >= 0; i--) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(monday);
+      date.setDate(monday.getDate() + i);
       days.push(date);
     }
     return days;
+  };
+
+  // Get current month's weeks
+  const getCurrentMonthWeeks = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = today.getMonth();
+
+    // First day of the month
+    const firstDay = new Date(year, month, 1);
+    // Last day of the month
+    const lastDay = new Date(year, month + 1, 0);
+
+    // Find Monday of the week containing the first day
+    const firstDayOfWeek = firstDay.getDay();
+    const firstMonday = new Date(firstDay);
+    firstMonday.setDate(firstDay.getDate() - (firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1));
+
+    const weeks = [];
+    let currentMonday = new Date(firstMonday);
+
+    // Keep adding weeks until we pass the last day of the month
+    while (currentMonday <= lastDay) {
+      const weekEnd = new Date(currentMonday);
+      weekEnd.setDate(currentMonday.getDate() + 6); // Sunday
+
+      weeks.push({
+        start: new Date(currentMonday),
+        end: weekEnd
+      });
+
+      currentMonday.setDate(currentMonday.getDate() + 7); // Next Monday
+    }
+
+    return weeks;
+  };
+
+  // Get current year's months
+  const getCurrentYearMonths = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const months = [];
+
+    for (let i = 0; i < 12; i++) {
+      months.push({
+        index: i,
+        name: new Date(year, i, 1).toLocaleDateString('en-US', { month: 'short' }),
+        year: year
+      });
+    }
+
+    return months;
   };
 
   // Calculate total minutes for a specific day and category
@@ -72,6 +131,27 @@ export default function ProgressScreen({ navigation, route }) {
       : sessions.filter(s => s.category === category);
 
     return filteredSessions.reduce((total, session) => total + session.minutes, 0);
+  };
+
+  // Calculate total minutes for a week (date range)
+  const getWeekMinutes = (startDate, endDate, category) => {
+    let totalMinutes = 0;
+    const currentDate = new Date(startDate);
+
+    while (currentDate <= endDate) {
+      totalMinutes += getTotalMinutes(currentDate, category);
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    return totalMinutes;
+  };
+
+  // Calculate total minutes for a month
+  const getMonthMinutes = (monthIndex, year, category) => {
+    const firstDay = new Date(year, monthIndex, 1);
+    const lastDay = new Date(year, monthIndex + 1, 0);
+
+    return getWeekMinutes(firstDay, lastDay, category);
   };
 
   // Get day name and number separately
@@ -92,11 +172,38 @@ export default function ProgressScreen({ navigation, route }) {
 
   // Get categories that have sessions within the chart's visible range
   const getCategoriesWithSessions = () => {
-    const last7Days = getLast7Days();
     const categoryMap = new Map(); // Map of category name -> category object
+    let dates = [];
+
+    // Get dates based on selected view
+    if (selectedView === 'week') {
+      dates = getCurrentWeekDays();
+    } else if (selectedView === 'month') {
+      const weeks = getCurrentMonthWeeks();
+      // Get all dates in the month's weeks
+      weeks.forEach(week => {
+        const currentDate = new Date(week.start);
+        while (currentDate <= week.end) {
+          dates.push(new Date(currentDate));
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+      });
+    } else if (selectedView === 'year') {
+      // Get all dates in the year
+      const months = getCurrentYearMonths();
+      months.forEach(month => {
+        const firstDay = new Date(month.year, month.index, 1);
+        const lastDay = new Date(month.year, month.index + 1, 0);
+        const currentDate = new Date(firstDay);
+        while (currentDate <= lastDay) {
+          dates.push(new Date(currentDate));
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+      });
+    }
 
     // Extract categories from sessions within the visible date range
-    last7Days.forEach(date => {
+    dates.forEach(date => {
       const dateString = date.toISOString().split('T')[0];
       const sessions = sessionData[dateString] || [];
 
@@ -107,7 +214,7 @@ export default function ProgressScreen({ navigation, route }) {
 
           categoryMap.set(session.category, {
             name: session.category,
-            color: session.color || (activeCategory ? activeCategory.color : '#8B8B8B'), // Use stored color or active category color or default
+            color: session.color || (activeCategory ? activeCategory.color : '#8B8B8B'),
             defaultMinutes: activeCategory ? activeCategory.defaultMinutes : 25,
           });
         }
@@ -120,16 +227,42 @@ export default function ProgressScreen({ navigation, route }) {
     return categoriesWithSessions.length > 0 ? categoriesWithSessions : categories;
   };
 
-  // Get total completed sessions for the current week
-  const getWeeklyCompletedSessions = () => {
-    const last7Days = getLast7Days();
+  // Get total completed sessions based on current view
+  const getCompletedSessions = () => {
     let totalSessions = 0;
 
-    last7Days.forEach(date => {
-      const dateString = date.toISOString().split('T')[0];
-      const sessions = sessionData[dateString] || [];
-      totalSessions += sessions.length;
-    });
+    if (selectedView === 'week') {
+      const weekDays = getCurrentWeekDays();
+      weekDays.forEach(date => {
+        const dateString = date.toISOString().split('T')[0];
+        const sessions = sessionData[dateString] || [];
+        totalSessions += sessions.length;
+      });
+    } else if (selectedView === 'month') {
+      const weeks = getCurrentMonthWeeks();
+      weeks.forEach(week => {
+        const currentDate = new Date(week.start);
+        while (currentDate <= week.end) {
+          const dateString = currentDate.toISOString().split('T')[0];
+          const sessions = sessionData[dateString] || [];
+          totalSessions += sessions.length;
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+      });
+    } else if (selectedView === 'year') {
+      const months = getCurrentYearMonths();
+      months.forEach(month => {
+        const firstDay = new Date(month.year, month.index, 1);
+        const lastDay = new Date(month.year, month.index + 1, 0);
+        const currentDate = new Date(firstDay);
+        while (currentDate <= lastDay) {
+          const dateString = currentDate.toISOString().split('T')[0];
+          const sessions = sessionData[dateString] || [];
+          totalSessions += sessions.length;
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+      });
+    }
 
     return totalSessions;
   };
@@ -164,18 +297,46 @@ export default function ProgressScreen({ navigation, route }) {
     );
   }
 
-  const last7Days = getLast7Days();
-  const chartData = last7Days.map(date => ({
-    date,
-    minutes: getTotalMinutes(date, selectedCategory),
-  }));
+  // Build chart data based on selected view
+  let chartData = [];
+  let barCount = 7; // default for week view
+
+  if (selectedView === 'week') {
+    const weekDays = getCurrentWeekDays();
+    chartData = weekDays.map(date => ({
+      date,
+      label: `${getDayName(date)}\n${getDayNumber(date)}`,
+      minutes: getTotalMinutes(date, selectedCategory),
+      isToday: isToday(date),
+    }));
+    barCount = 7;
+  } else if (selectedView === 'month') {
+    const weeks = getCurrentMonthWeeks();
+    chartData = weeks.map(week => ({
+      start: week.start,
+      end: week.end,
+      label: `${week.start.getMonth() + 1}/${week.start.getDate()}-${week.end.getDate()}`,
+      minutes: getWeekMinutes(week.start, week.end, selectedCategory),
+      isToday: false, // weeks don't have "today" highlight
+    }));
+    barCount = weeks.length;
+  } else if (selectedView === 'year') {
+    const months = getCurrentYearMonths();
+    chartData = months.map(month => ({
+      index: month.index,
+      label: month.name,
+      minutes: getMonthMinutes(month.index, month.year, selectedCategory),
+      isToday: new Date().getMonth() === month.index,
+    }));
+    barCount = 12;
+  }
 
   const maxMinutes = Math.max(...chartData.map(d => d.minutes), 60); // At least 60 min scale
   const filteredCategories = getCategoriesWithSessions();
-  const weeklyCompletedSessions = getWeeklyCompletedSessions();
+  const completedSessions = getCompletedSessions();
   const chartHeight = 200;
   const chartWidth = SCREEN_WIDTH - 80;
-  const barWidth = chartWidth / 7 - 10;
+  const barWidth = chartWidth / barCount - 10;
   const TOP_PADDING = 20; // Padding to prevent label cutoff at top
 
   // Generate gridline intervals (every 15 minutes)
@@ -194,42 +355,45 @@ export default function ProgressScreen({ navigation, route }) {
       title="Progress"
       isPlusFeature={true}
     >
-      {/* Category Filter */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryFilter}>
+      {/* View Switcher */}
+      <View style={styles.viewSwitcher}>
         <TouchableOpacity
           style={[
-            styles.categoryPill,
-            selectedCategory === 'All' && styles.categoryPillSelected,
-            { backgroundColor: selectedCategory === 'All' ? '#8B8B8B' : 'rgba(139, 139, 139, 0.15)' }
+            styles.viewTab,
+            selectedView === 'week' && styles.viewTabActive
           ]}
-          onPress={() => setSelectedCategory('All')}
+          onPress={() => setSelectedView('week')}
         >
           <Text style={[
-            styles.categoryPillText,
-            selectedCategory === 'All' && styles.categoryPillTextSelected
-          ]}>All</Text>
+            styles.viewTabText,
+            selectedView === 'week' && styles.viewTabTextActive
+          ]}>Week</Text>
         </TouchableOpacity>
-
-        {filteredCategories.map((category) => {
-          const isSelected = selectedCategory === category.name;
-          return (
-            <TouchableOpacity
-              key={category.name}
-              style={[
-                styles.categoryPill,
-                isSelected && styles.categoryPillSelected,
-                { backgroundColor: isSelected ? category.color : 'rgba(139, 139, 139, 0.15)' }
-              ]}
-              onPress={() => setSelectedCategory(category.name)}
-            >
-              <Text style={[
-                styles.categoryPillText,
-                isSelected && styles.categoryPillTextSelected
-              ]}>{category.name}</Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+        <TouchableOpacity
+          style={[
+            styles.viewTab,
+            selectedView === 'month' && styles.viewTabActive
+          ]}
+          onPress={() => setSelectedView('month')}
+        >
+          <Text style={[
+            styles.viewTabText,
+            selectedView === 'month' && styles.viewTabTextActive
+          ]}>Month</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.viewTab,
+            selectedView === 'year' && styles.viewTabActive
+          ]}
+          onPress={() => setSelectedView('year')}
+        >
+          <Text style={[
+            styles.viewTabText,
+            selectedView === 'year' && styles.viewTabTextActive
+          ]}>Year</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Bar Chart */}
       <View style={styles.chartContainer}>
@@ -270,7 +434,9 @@ export default function ProgressScreen({ navigation, route }) {
             const barHeight = (data.minutes / maxMinutes) * chartHeight;
             const x = 40 + index * (barWidth + 10);
             const y = TOP_PADDING + chartHeight - barHeight;
-            const today = isToday(data.date);
+
+            // Split label by newline for multi-line display
+            const labelLines = data.label.split('\n');
 
             return (
               <React.Fragment key={index}>
@@ -279,45 +445,76 @@ export default function ProgressScreen({ navigation, route }) {
                   y={y}
                   width={barWidth}
                   height={barHeight || 0}
-                  fill={today ? '#FF7A59' : 'rgba(139, 139, 139, 0.6)'}
+                  fill={data.isToday ? '#FF7A59' : 'rgba(139, 139, 139, 0.6)'}
                   rx="4"
                 />
-                {/* Day name (first row) */}
-                <SvgText
-                  x={x + barWidth / 2}
-                  y={TOP_PADDING + chartHeight + 18}
-                  fill="#8B8B8B"
-                  fontSize="11"
-                  fontFamily="Poppins_400Regular"
-                  textAnchor="middle"
-                >
-                  {getDayName(data.date)}
-                </SvgText>
-                {/* Day number (second row) */}
-                <SvgText
-                  x={x + barWidth / 2}
-                  y={TOP_PADDING + chartHeight + 32}
-                  fill="#8B8B8B"
-                  fontSize="11"
-                  fontFamily="Poppins_400Regular"
-                  textAnchor="middle"
-                >
-                  {getDayNumber(data.date)}
-                </SvgText>
+                {/* Label (can be one or two lines) */}
+                {labelLines.map((line, lineIndex) => (
+                  <SvgText
+                    key={lineIndex}
+                    x={x + barWidth / 2}
+                    y={TOP_PADDING + chartHeight + 18 + (lineIndex * 14)}
+                    fill="#8B8B8B"
+                    fontSize="11"
+                    fontFamily="Poppins_400Regular"
+                    textAnchor="middle"
+                  >
+                    {line}
+                  </SvgText>
+                ))}
               </React.Fragment>
             );
           })}
         </Svg>
       </View>
 
+      {/* Category Filter */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryFilter}>
+        <TouchableOpacity
+          style={[
+            styles.categoryPill,
+            selectedCategory === 'All' && styles.categoryPillSelected,
+            { backgroundColor: selectedCategory === 'All' ? '#8B8B8B' : 'rgba(139, 139, 139, 0.15)' }
+          ]}
+          onPress={() => setSelectedCategory('All')}
+        >
+          <Text style={[
+            styles.categoryPillText,
+            selectedCategory === 'All' && styles.categoryPillTextSelected
+          ]}>All</Text>
+        </TouchableOpacity>
+
+        {filteredCategories.map((category) => {
+          const isSelected = selectedCategory === category.name;
+          return (
+            <TouchableOpacity
+              key={category.name}
+              style={[
+                styles.categoryPill,
+                isSelected && styles.categoryPillSelected,
+                { backgroundColor: isSelected ? category.color : 'rgba(139, 139, 139, 0.15)' }
+              ]}
+              onPress={() => setSelectedCategory(category.name)}
+            >
+              <Text style={[
+                styles.categoryPillText,
+                isSelected && styles.categoryPillTextSelected
+              ]}>{category.name}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+
       {/* Tomidos Section - only show if more than 1 completed session */}
-      {weeklyCompletedSessions > 1 && (
+      {completedSessions > 1 && (
         <View style={styles.tomidosSection}>
           <Text style={styles.tomidosTitle}>Tomidos</Text>
           <View style={styles.tomidosContent}>
             <TomatoCharacter size={44} state={CHARACTER_STATES.COMPLETED} />
-            <Text style={styles.tomidosText}>x {weeklyCompletedSessions}</Text>
-            <Text style={styles.tomidosText}>Happy Tomidos</Text>
+            <Text style={styles.tomidosText}>x {completedSessions}</Text>
+            <Text style={styles.tomidosText}>
+              {selectedView === 'week' ? 'Weekly' : selectedView === 'month' ? 'Monthly' : 'Yearly'} Tomidos
+            </Text>
           </View>
         </View>
       )}
@@ -349,21 +546,50 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 24,
   },
-  categoryFilter: {
-    marginBottom: 30,
-    maxHeight: 50,
+  viewSwitcher: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: 20,
+    backgroundColor: 'rgba(139, 139, 139, 0.1)',
+    borderRadius: 25,
+    padding: 4,
+    alignSelf: 'center',
   },
-  categoryPill: {
-    paddingHorizontal: 16,
+  viewTab: {
+    paddingHorizontal: 20,
     paddingVertical: 8,
     borderRadius: 20,
-    marginRight: 10,
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  viewTabActive: {
+    backgroundColor: '#FF7A59',
+  },
+  viewTabText: {
+    fontSize: 14,
+    fontFamily: 'Poppins_600SemiBold',
+    color: '#8B8B8B',
+  },
+  viewTabTextActive: {
+    color: '#FFFFFF',
+  },
+  categoryFilter: {
+    marginBottom: 20,
+    marginTop: -25,
+    maxHeight: 40,
+    alignSelf: 'center',
+  },
+  categoryPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginRight: 8,
   },
   categoryPillSelected: {
     // Background color set inline
   },
   categoryPillText: {
-    fontSize: 14,
+    fontSize: 12,
     fontFamily: 'Poppins_600SemiBold',
     color: '#2C3E50',
   },
@@ -376,19 +602,19 @@ const styles = StyleSheet.create({
   },
   tomidosSection: {
     paddingHorizontal: 20,
-    paddingVertical: 20,
+    paddingVertical: 50,
     alignItems: 'center',
   },
   tomidosTitle: {
     fontSize: 18,
     fontFamily: 'Poppins_600SemiBold',
     color: '#2C3E50',
-    marginBottom: 15,
+    marginBottom: 5,
   },
   tomidosContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 15,
+    gap: 5,
   },
   tomidosText: {
     fontSize: 16,
