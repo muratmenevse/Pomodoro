@@ -8,12 +8,15 @@ import {
 } from 'react-native';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold } from '@expo-google-fonts/poppins';
 import PlusMenuItem from './PlusMenuItem';
+import { useMembership } from '../contexts/MembershipContext';
 
 export default function HamburgerMenu({ visible, onClose, onSettings, onProgress, onPlusClick, onTest, testPlusMode = false }) {
   const [fontsLoaded] = useFonts({
     Poppins_400Regular,
     Poppins_600SemiBold,
   });
+
+  const { isPlusMember } = useMembership();
 
   if (!fontsLoaded) {
     return null;
@@ -34,6 +37,23 @@ export default function HamburgerMenu({ visible, onClose, onSettings, onProgress
       >
         {/* Menu */}
         <View style={styles.menu}>
+          {/* Plus menu item - only shown for free users */}
+          {!isPlusMember && !testPlusMode && (
+            <>
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  onClose();
+                  onPlusClick();
+                }}
+              >
+                <Text style={[styles.menuItemText, styles.plusMenuText]}>Plus</Text>
+              </TouchableOpacity>
+
+              <View style={styles.separator} />
+            </>
+          )}
+
           <PlusMenuItem
             label="Progress"
             isPlusFeature={true}
@@ -112,6 +132,9 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: 'rgba(139, 139, 139, 0.2)',
     marginHorizontal: 10,
+  },
+  plusMenuText: {
+    color: '#9C27B0',
   },
   testMenuText: {
     color: '#9C27B0',

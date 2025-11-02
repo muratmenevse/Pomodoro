@@ -1,7 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Dimensions, AppState } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
 import { RulerPicker } from 'react-native-ruler-picker';
 import { Audio } from 'expo-av';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
@@ -15,6 +14,7 @@ import RevenueCatService from '../services/RevenueCatService';
 import TimerNotificationManager from '../services/TimerNotificationManager';
 import NotificationService from '../services/NotificationService';
 import Svg, { Path } from 'react-native-svg';
+import { useTimer } from '../hooks/useTimer';
 
 // Get screen dimensions for responsive design
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -97,16 +97,10 @@ export default function HomeScreen({ navigation }) {
     return [...categories, ...customCategories];
   }, [categories, customCategories]);
 
-  const [timeInSeconds, setTimeInSeconds] = useState(initialMinutes * 60);
-  const [sliderMinutes, setSliderMinutes] = useState(initialMinutes);
-  const [isRunning, setIsRunning] = useState(false);
-  const intervalRef = useRef(null);
   const [sound, setSound] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState('Focus');
   const [showHamburgerMenu, setShowHamburgerMenu] = useState(false);
   const [showTestSettingsModal, setShowTestSettingsModal] = useState(false);
-  const [isCompleted, setIsCompleted] = useState(false);
-  const [sessionStartMinutes, setSessionStartMinutes] = useState(initialMinutes);
 
   // Test mode state for test pages (dev only)
   const [showTestPages, setShowTestPages] = useState(false);
@@ -117,19 +111,6 @@ export default function HomeScreen({ navigation }) {
     () => getTimerConfig(test10SecondMode),
     [test10SecondMode]
   );
-
-  // Load and play notification sound
-  const playNotificationSound = async () => {
-    try {
-      const { sound } = await Audio.Sound.createAsync(
-        require('../assets/sounds/successSound.m4a')
-      );
-      setSound(sound);
-      await sound.playAsync();
-    } catch (error) {
-      console.log('Error playing sound:', error);
-    }
-  };
 
   // Cleanup sound
   useEffect(() => {
@@ -276,76 +257,19 @@ export default function HomeScreen({ navigation }) {
     }
   }, [showTestPages, test10SecondMode]);
 
-  // Update timer display when test mode changes
-  useEffect(() => {
-    if (!isRunning) {
-      const minutes = timerConfig.defaultMinutes;
-      setTimeInSeconds(minutes * 60);
-      setSliderMinutes(minutes);
+  // Helper functions needed by useTimer hook
+
+  // Load and play notification sound
+  const playNotificationSound = async () => {
+    try {
+      const { sound } = await Audio.Sound.createAsync(
+        require('../assets/sounds/successSound.m4a')
+      );
+      setSound(sound);
+      await sound.playAsync();
+    } catch (error) {
+      console.log('Error playing sound:', error);
     }
-  }, [test10SecondMode]);
-
-  // Reset timer when returning from Success or Break screens
-  useFocusEffect(
-    useCallback(() => {
-      if (isCompleted) {
-        setIsCompleted(false);
-        setTimeInSeconds(timerConfig.defaultMinutes * 60);
-        setSliderMinutes(timerConfig.defaultMinutes);
-      }
-    }, [isCompleted, timerConfig.defaultMinutes])
-  );
-
-  // Countdown logic
-  useEffect(() => {
-    if (isRunning) {
-      intervalRef.current = setInterval(() => {
-        setTimeInSeconds((prevTime) => {
-          if (prevTime <= 1) {
-            clearInterval(intervalRef.current);
-            setIsRunning(false);
-            setIsCompleted(true);
-            playNotificationSound();
-            // Save completed session
-            saveCompletedSession(selectedCategory, sessionStartMinutes);
-
-            // Clear timer state from AsyncStorage since timer completed
-            AsyncStorage.multiRemove([
-              TIMER_END_TIME_KEY,
-              TIMER_SESSION_MINUTES_KEY,
-              TIMER_CATEGORY_KEY
-            ]).catch(err => console.log('Error clearing timer state:', err));
-
-            // Cancel scheduled notification since timer completed in foreground
-            TimerNotificationManager.cancel().catch(err => console.log('Error canceling notification:', err));
-
-            // Navigate to success screen (deferred to avoid render-time navigation)
-            setTimeout(() => {
-              navigation.navigate('Success', { test10SecondMode });
-            }, 0);
-            return 0;
-          }
-          return prevTime - 1;
-        });
-      }, 1000);
-    } else {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    }
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    };
-  }, [isRunning]);
-
-  // Format time as MM:SS
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   };
 
   // Get category color
@@ -439,28 +363,36 @@ export default function HomeScreen({ navigation }) {
     }
   };
 
-  const handleStartFocus = async () => {
-    setIsRunning(true);
-    setIsCompleted(false);
-
-    // Use timer config to determine duration
-    const minutes = timerConfig.useSlider ? sliderMinutes : timerConfig.defaultMinutes;
-    setSessionStartMinutes(minutes);
-    setTimeInSeconds(minutes * 60);
-
-    // Schedule notification for completion time
-    await TimerNotificationManager.scheduleCompletion(minutes, minutes, selectedCategory);
-
-    // Save timer state to AsyncStorage for background recovery
-    const endTime = Date.now() + (minutes * 60 * 1000);
-    try {
-      await AsyncStorage.setItem(TIMER_END_TIME_KEY, endTime.toString());
-      await AsyncStorage.setItem(TIMER_SESSION_MINUTES_KEY, minutes.toString());
-      await AsyncStorage.setItem(TIMER_CATEGORY_KEY, selectedCategory);
-    } catch (error) {
-      console.log('Error saving timer state:', error);
-    }
-  };
+  // Use custom timer hook for all timer logic (fixes race condition bug)
+  const {
+    timeInSeconds,
+    sliderMinutes,
+    isRunning,
+    isCompleted,
+    sessionStartMinutes,
+    sliderKey,
+    formatTime,
+    handleStartFocus,
+    handleReset,
+    handleSliderChange,
+    setIsCompleted,
+    setTimeInSeconds,
+    setSliderMinutes,
+    setIsRunning,
+  } = useTimer({
+    initialMinutes,
+    timerConfig,
+    allCategories,
+    selectedCategory,
+    categories,
+    customCategories,
+    setCategories,
+    updateCustomCategoryTime,
+    saveCompletedSession,
+    playNotificationSound,
+    navigation,
+    test10SecondMode,
+  });
 
   const handleGiveUp = () => {
     navigation.navigate('Confirmation', {
@@ -471,63 +403,6 @@ export default function HomeScreen({ navigation }) {
       confirmStyle: 'destructive',
       onConfirm: handleReset,
     });
-  };
-
-  const handleReset = async () => {
-    setIsRunning(false);
-    setIsCompleted(false);
-    setTimeInSeconds(timerConfig.defaultMinutes * 60);
-    setSliderMinutes(timerConfig.defaultMinutes);
-
-    // Cancel scheduled notification
-    await TimerNotificationManager.cancel();
-
-    // Clear timer state from AsyncStorage
-    try {
-      await AsyncStorage.multiRemove([
-        TIMER_END_TIME_KEY,
-        TIMER_SESSION_MINUTES_KEY,
-        TIMER_CATEGORY_KEY
-      ]);
-    } catch (error) {
-      console.log('Error clearing timer state:', error);
-    }
-  };
-
-  const handleSliderChange = async (value) => {
-    const minutes = Math.max(timerConfig.minMinutes, Math.round(value / timerConfig.stepInterval) * timerConfig.stepInterval);
-    setSliderMinutes(minutes);
-    setTimeInSeconds(minutes * 60);
-    setIsCompleted(false);
-
-    // Check if this is a custom category
-    const isCustomCategory = customCategories.some(cat => cat.name === selectedCategory);
-
-    if (isCustomCategory) {
-      // Update custom category time
-      await updateCustomCategoryTime(selectedCategory, minutes);
-    } else {
-      // Update default category's defaultMinutes
-      const updatedCategories = categories.map(cat =>
-        cat.name === selectedCategory
-          ? { ...cat, defaultMinutes: minutes }
-          : cat
-      );
-      setCategories(updatedCategories);
-
-      // Save to AsyncStorage (both full list and times for backward compatibility)
-      try {
-        await AsyncStorage.setItem(CATEGORIES_LIST_KEY, JSON.stringify(updatedCategories));
-
-        const categoryTimes = {};
-        updatedCategories.forEach(cat => {
-          categoryTimes[cat.name] = cat.defaultMinutes;
-        });
-        await AsyncStorage.setItem(CATEGORY_TIMES_KEY, JSON.stringify(categoryTimes));
-      } catch (error) {
-        console.log('Error saving category times:', error);
-      }
-    }
   };
 
   // Get character state based on timer state
@@ -617,7 +492,8 @@ export default function HomeScreen({ navigation }) {
         <View style={styles.rulerContainer}>
           {timerConfig.useSlider ? (
             <RulerPicker
-              min={0}
+              key={sliderKey}
+              min={timerConfig.minMinutes}
               max={timerConfig.maxMinutes}
               step={timerConfig.stepInterval}
               fractionDigits={0}

@@ -9,6 +9,7 @@ export default function TomatoCharacter({ size = 150, state = CHARACTER_STATES.I
   const wiggleAnim = useRef(new Animated.Value(0)).current;
   const swayAnim = useRef(new Animated.Value(0)).current;
   const steamAnim = useRef(new Animated.Value(0)).current;
+  const wiltAnim = useRef(new Animated.Value(0)).current;
 
   // Animation instance refs for cleanup
   const breathingAnimRef = useRef(null);
@@ -16,6 +17,7 @@ export default function TomatoCharacter({ size = 150, state = CHARACTER_STATES.I
   const wiggleAnimRef = useRef(null);
   const swayAnimRef = useRef(null);
   const steamAnimRef = useRef(null);
+  const wiltAnimRef = useRef(null);
 
   // Breathing animation loop for focusing state
   useEffect(() => {
@@ -188,6 +190,38 @@ export default function TomatoCharacter({ size = 150, state = CHARACTER_STATES.I
     };
   }, [state]);
 
+  // Wilting animation for rotten state (slow droop)
+  useEffect(() => {
+    if (state === CHARACTER_STATES.ROTTEN) {
+      wiltAnimRef.current = Animated.loop(
+        Animated.sequence([
+          Animated.timing(wiltAnim, {
+            toValue: 3,
+            duration: 2000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(wiltAnim, {
+            toValue: 0,
+            duration: 2000,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      wiltAnimRef.current.start();
+    } else {
+      if (wiltAnimRef.current) {
+        wiltAnimRef.current.stop();
+      }
+      wiltAnim.setValue(0);
+    }
+
+    return () => {
+      if (wiltAnimRef.current) {
+        wiltAnimRef.current.stop();
+      }
+    };
+  }, [state]);
+
   // Render eyes based on state
   const renderEyes = () => {
     if (state === CHARACTER_STATES.COMPLETED) {
@@ -226,6 +260,26 @@ export default function TomatoCharacter({ size = 150, state = CHARACTER_STATES.I
         <G>
           <Circle cx="65" cy="85" r="3.5" fill="#2C3E50" />
           <Circle cx="85" cy="85" r="3.5" fill="#2C3E50" />
+        </G>
+      );
+    } else if (state === CHARACTER_STATES.ROTTEN) {
+      // Sad X eyes: X X
+      return (
+        <G>
+          {/* Left X eye */}
+          <Path
+            d="M 61 81 L 69 89 M 61 89 L 69 81"
+            stroke="#2C3E50"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+          />
+          {/* Right X eye */}
+          <Path
+            d="M 81 81 L 89 89 M 81 89 L 89 81"
+            stroke="#2C3E50"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+          />
         </G>
       );
     } else {
@@ -270,6 +324,17 @@ export default function TomatoCharacter({ size = 150, state = CHARACTER_STATES.I
           d="M 63 95 Q 75 101, 87 95"
           stroke="#2C3E50"
           strokeWidth="2"
+          fill="none"
+          strokeLinecap="round"
+        />
+      );
+    } else if (state === CHARACTER_STATES.ROTTEN) {
+      // Sad frown (downward curve)
+      return (
+        <Path
+          d="M 62 100 Q 75 93, 88 100"
+          stroke="#2C3E50"
+          strokeWidth="2.5"
           fill="none"
           strokeLinecap="round"
         />
@@ -444,6 +509,11 @@ export default function TomatoCharacter({ size = 150, state = CHARACTER_STATES.I
     return { rotate: '0deg' };
   };
 
+  // Determine body color based on state
+  const bodyColor = state === CHARACTER_STATES.ROTTEN ? '#8B4513' : '#FF6B6B';
+  const stemColor = state === CHARACTER_STATES.ROTTEN ? '#6B4423' : '#4CAF50';
+  const leafColor = state === CHARACTER_STATES.ROTTEN ? '#5A3A1A' : '#66BB6A';
+
   return (
     <Animated.View
       style={{
@@ -461,31 +531,58 @@ export default function TomatoCharacter({ size = 150, state = CHARACTER_STATES.I
       <Animated.View style={{ transform: [{ scale: breathingAnim }] }}>
         <Svg width={size} height={size} viewBox="0 0 150 150">
           {/* Tomato body */}
-          <Circle cx="75" cy="85" r="45" fill="#FF6B6B" />
-          <Ellipse cx="60" cy="80" rx="20" ry="25" fill="#FF6B6B" />
-          <Ellipse cx="90" cy="80" rx="20" ry="25" fill="#FF6B6B" />
+          <Circle cx="75" cy="85" r="45" fill={bodyColor} />
+          <Ellipse cx="60" cy="80" rx="20" ry="25" fill={bodyColor} />
+          <Ellipse cx="90" cy="80" rx="20" ry="25" fill={bodyColor} />
 
-          {/* Highlight */}
-          <Ellipse cx="60" cy="75" rx="8" ry="12" fill="#FF8787" opacity="0.6" />
+          {/* Highlight - hidden for rotten state */}
+          {state !== CHARACTER_STATES.ROTTEN && (
+            <Ellipse cx="60" cy="75" rx="8" ry="12" fill="#FF8787" opacity="0.6" />
+          )}
 
-          {/* Stem */}
-          <Path
-            d="M 75 35 Q 70 40, 75 45"
-            stroke="#4CAF50"
-            strokeWidth="4"
-            fill="none"
-            strokeLinecap="round"
-          />
+          {/* Stem - wilted for rotten state */}
+          {state === CHARACTER_STATES.ROTTEN ? (
+            <Path
+              d="M 75 35 Q 68 40, 65 45"
+              stroke={stemColor}
+              strokeWidth="3"
+              fill="none"
+              strokeLinecap="round"
+            />
+          ) : (
+            <Path
+              d="M 75 35 Q 70 40, 75 45"
+              stroke={stemColor}
+              strokeWidth="4"
+              fill="none"
+              strokeLinecap="round"
+            />
+          )}
 
-          {/* Leaves */}
-          <Path
-            d="M 75 38 Q 85 35, 90 40 Q 85 38, 75 40"
-            fill="#66BB6A"
-          />
-          <Path
-            d="M 75 38 Q 65 35, 60 40 Q 65 38, 75 40"
-            fill="#66BB6A"
-          />
+          {/* Leaves - wilted and drooping for rotten state */}
+          {state === CHARACTER_STATES.ROTTEN ? (
+            <>
+              <Path
+                d="M 75 38 Q 80 40, 82 45 Q 78 42, 72 42"
+                fill={leafColor}
+              />
+              <Path
+                d="M 70 38 Q 65 40, 63 45 Q 67 42, 73 42"
+                fill={leafColor}
+              />
+            </>
+          ) : (
+            <>
+              <Path
+                d="M 75 38 Q 85 35, 90 40 Q 85 38, 75 40"
+                fill={leafColor}
+              />
+              <Path
+                d="M 75 38 Q 65 35, 60 40 Q 65 38, 75 40"
+                fill={leafColor}
+              />
+            </>
+          )}
 
           {/* Face - Eyes */}
           {renderEyes()}

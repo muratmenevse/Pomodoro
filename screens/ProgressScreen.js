@@ -170,6 +170,33 @@ export default function ProgressScreen({ navigation, route }) {
     return date.toDateString() === today.toDateString();
   };
 
+  // Generate header text based on selected view
+  const getHeaderText = () => {
+    if (selectedView === 'week') {
+      const weekDays = getCurrentWeekDays();
+      const firstDay = weekDays[0];
+      const lastDay = weekDays[6];
+
+      const firstMonth = firstDay.toLocaleDateString('en-US', { month: 'short' });
+      const lastMonth = lastDay.toLocaleDateString('en-US', { month: 'short' });
+      const firstDate = firstDay.getDate();
+      const lastDate = lastDay.getDate();
+
+      // If week spans two months, show both months
+      if (firstMonth !== lastMonth) {
+        return `${firstMonth} ${firstDate} - ${lastMonth} ${lastDate}`;
+      }
+      return `${firstMonth} ${firstDate} - ${lastDate}`;
+    } else if (selectedView === 'month') {
+      const today = new Date();
+      return today.toLocaleDateString('en-US', { month: 'long' });
+    } else if (selectedView === 'year') {
+      const today = new Date();
+      return today.getFullYear().toString();
+    }
+    return '';
+  };
+
   // Get categories that have sessions within the chart's visible range
   const getCategoriesWithSessions = () => {
     const categoryMap = new Map(); // Map of category name -> category object
@@ -395,6 +422,9 @@ export default function ProgressScreen({ navigation, route }) {
         </TouchableOpacity>
       </View>
 
+      {/* View Header */}
+      <Text style={styles.viewHeader}>{getHeaderText()}</Text>
+
       {/* Bar Chart */}
       <View style={styles.chartContainer}>
         <Svg width={chartWidth + 40} height={chartHeight + 80}>
@@ -572,6 +602,14 @@ const styles = StyleSheet.create({
   },
   viewTabTextActive: {
     color: '#FFFFFF',
+  },
+  viewHeader: {
+    fontSize: 18,
+    fontFamily: 'Poppins_600SemiBold',
+    color: '#2C3E50',
+    textAlign: 'center',
+    marginTop: 15,
+    marginBottom: 20,
   },
   categoryFilter: {
     marginBottom: 20,

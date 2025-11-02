@@ -50,6 +50,12 @@ export default function CharacterTestScreen({ navigation }) {
           <Text style={styles.description}>Relaxed + Coffee</Text>
           <TomatoCharacter size={180} state={CHARACTER_STATES.BREAK} />
         </View>
+
+        <View style={styles.characterContainer}>
+          <Text style={styles.label}>ROTTEN</Text>
+          <Text style={styles.description}>Wilted + Sad</Text>
+          <TomatoCharacter size={180} state={CHARACTER_STATES.ROTTEN} />
+        </View>
       </ScrollView>
 
       <View style={styles.footer}>
