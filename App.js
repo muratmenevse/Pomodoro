@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { Platform } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { MembershipProvider } from './contexts/MembershipContext';
 import { ModalProvider } from './contexts/ModalContext';
@@ -15,8 +16,12 @@ export default function App() {
     RevenueCatService.configure();
   }, []);
 
-  // Handle notification taps
+  // Handle notification taps (only on mobile platforms)
   useEffect(() => {
+    if (Platform.OS === 'web') {
+      return;
+    }
+
     const subscription = NotificationService.addNotificationResponseListener((response) => {
       const screen = response.notification.request.content.data?.screen;
       const sessionMinutes = response.notification.request.content.data?.sessionMinutes;

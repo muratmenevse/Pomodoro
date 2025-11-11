@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Dimensions,
   TouchableOpacity,
-  ScrollView,
 } from 'react-native';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -254,8 +253,8 @@ export default function ProgressScreen({ navigation, route }) {
     return categoriesWithSessions.length > 0 ? categoriesWithSessions : categories;
   };
 
-  // Get total completed sessions based on current view
-  const getCompletedSessions = () => {
+  // Get total sessions based on current view and status (completed or failed)
+  const getCompletedSessions = (status = 'completed') => {
     let totalSessions = 0;
 
     if (selectedView === 'week') {
@@ -263,7 +262,9 @@ export default function ProgressScreen({ navigation, route }) {
       weekDays.forEach(date => {
         const dateString = date.toISOString().split('T')[0];
         const sessions = sessionData[dateString] || [];
-        totalSessions += sessions.length;
+        // Filter by status, treating sessions without status as completed for backward compatibility
+        const filteredSessions = sessions.filter(s => s.status === status || (!s.status && status === 'completed'));
+        totalSessions += filteredSessions.length;
       });
     } else if (selectedView === 'month') {
       const weeks = getCurrentMonthWeeks();
@@ -272,7 +273,8 @@ export default function ProgressScreen({ navigation, route }) {
         while (currentDate <= week.end) {
           const dateString = currentDate.toISOString().split('T')[0];
           const sessions = sessionData[dateString] || [];
-          totalSessions += sessions.length;
+          const filteredSessions = sessions.filter(s => s.status === status || (!s.status && status === 'completed'));
+          totalSessions += filteredSessions.length;
           currentDate.setDate(currentDate.getDate() + 1);
         }
       });
@@ -285,7 +287,8 @@ export default function ProgressScreen({ navigation, route }) {
         while (currentDate <= lastDay) {
           const dateString = currentDate.toISOString().split('T')[0];
           const sessions = sessionData[dateString] || [];
-          totalSessions += sessions.length;
+          const filteredSessions = sessions.filter(s => s.status === status || (!s.status && status === 'completed'));
+          totalSessions += filteredSessions.length;
           currentDate.setDate(currentDate.getDate() + 1);
         }
       });
@@ -360,9 +363,10 @@ export default function ProgressScreen({ navigation, route }) {
 
   const maxMinutes = Math.max(...chartData.map(d => d.minutes), 60); // At least 60 min scale
   const filteredCategories = getCategoriesWithSessions();
-  const completedSessions = getCompletedSessions();
+  const completedSessions = getCompletedSessions('completed');
+  const failedSessions = getCompletedSessions('failed');
   const chartHeight = 200;
-  const chartWidth = SCREEN_WIDTH - 80;
+  const chartWidth = SCREEN_WIDTH - 120;
   const barWidth = chartWidth / barCount - 10;
   const TOP_PADDING = 20; // Padding to prevent label cutoff at top
 
@@ -425,9 +429,13 @@ export default function ProgressScreen({ navigation, route }) {
       {/* View Header */}
       <Text style={styles.viewHeader}>{getHeaderText()}</Text>
 
-      {/* Bar Chart */}
-      <View style={styles.chartContainer}>
-        <Svg width={chartWidth + 40} height={chartHeight + 80}>
+      {/* Chart Section - includes chart and category filter */}
+      <View style={styles.chartSection}>
+        <Text style={styles.sectionTitle}>Successful Focus Time</Text>
+
+        {/* Bar Chart */}
+        <View style={styles.chartContainer}>
+        <Svg width={chartWidth + 70} height={chartHeight + 80}>
           {/* Grid lines (every 15 minutes) and Y-axis labels (every 30 minutes) */}
           {generateGridlines().map((value, index) => {
             const y = TOP_PADDING + chartHeight - (value / (maxMinutes / 60)) * chartHeight;
@@ -499,7 +507,7 @@ export default function ProgressScreen({ navigation, route }) {
       </View>
 
       {/* Category Filter */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryFilter}>
+      <View style={styles.categoryFilter}>
         <TouchableOpacity
           style={[
             styles.categoryPill,
@@ -533,19 +541,31 @@ export default function ProgressScreen({ navigation, route }) {
             </TouchableOpacity>
           );
         })}
-      </ScrollView>
+      </View>
+      </View>
 
-      {/* Tomidos Section - only show if more than 1 completed session */}
-      {completedSessions > 1 && (
-        <View style={styles.tomidosSection}>
-          <Text style={styles.tomidosTitle}>Tomidos</Text>
-          <View style={styles.tomidosContent}>
-            <TomatoCharacter size={44} state={CHARACTER_STATES.COMPLETED} />
-            <Text style={styles.tomidosText}>x {completedSessions}</Text>
-            <Text style={styles.tomidosText}>
-              {selectedView === 'week' ? 'Weekly' : selectedView === 'month' ? 'Monthly' : 'Yearly'} Tomidos
-            </Text>
-          </View>
+      {/* Tomitos Section - show if there are any completed or failed sessions */}
+      {(completedSessions > 0 || failedSessions > 0) && (
+        <View style={styles.tomitosSection}>
+          <Text style={styles.tomitosTitle}>Tomitos</Text>
+
+          {/* Happy Tomitos */}
+          {completedSessions > 0 && (
+            <View style={styles.tomitosContent}>
+              <TomatoCharacter size={44} state={CHARACTER_STATES.COMPLETED} />
+              <Text style={styles.tomitosText}>x {completedSessions}</Text>
+              <Text style={styles.tomitosText}>Happy Tomitos</Text>
+            </View>
+          )}
+
+          {/* Rotten Tomitos */}
+          {failedSessions > 0 && (
+            <View style={styles.tomitosContent}>
+              <TomatoCharacter size={44} state={CHARACTER_STATES.ROTTEN} />
+              <Text style={styles.tomitosText}>x {failedSessions}</Text>
+              <Text style={styles.tomitosText}>Rotten Tomitos</Text>
+            </View>
+          )}
         </View>
       )}
     </ScreenContainer>
@@ -612,22 +632,25 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   categoryFilter: {
-    marginBottom: 20,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    marginBottom: 10,
     marginTop: -25,
-    maxHeight: 40,
     alignSelf: 'center',
   },
   categoryPill: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginRight: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 12,
+    marginBottom: 16,
   },
   categoryPillSelected: {
     // Background color set inline
   },
   categoryPillText: {
-    fontSize: 12,
+    fontSize: 14,
     fontFamily: 'Poppins_600SemiBold',
     color: '#2C3E50',
   },
@@ -638,23 +661,41 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 30,
   },
-  tomidosSection: {
-    paddingHorizontal: 20,
-    paddingVertical: 50,
-    alignItems: 'center',
+  chartSection: {
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    borderRadius: 16,
+    marginVertical: 15,
+    paddingTop: 20,
+    paddingHorizontal: 10,
+    paddingLeft: 35,
   },
-  tomidosTitle: {
+  sectionTitle: {
+    fontSize: 18,
+    fontFamily: 'Poppins_600SemiBold',
+    color: '#2C3E50',
+    marginBottom: 15,
+    textAlign: 'left',
+  },
+  tomitosSection: {
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    borderRadius: 16,
+    marginVertical: 15,
+    paddingHorizontal: 15,
+    paddingVertical: 20,
+    alignItems: 'flex-start',
+  },
+  tomitosTitle: {
     fontSize: 18,
     fontFamily: 'Poppins_600SemiBold',
     color: '#2C3E50',
     marginBottom: 5,
   },
-  tomidosContent: {
+  tomitosContent: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
   },
-  tomidosText: {
+  tomitosText: {
     fontSize: 16,
     fontFamily: 'Poppins_400Regular',
     color: '#2C3E50',

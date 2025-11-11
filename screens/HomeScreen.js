@@ -1,6 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Dimensions, AppState } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Dimensions, AppState, Platform } from 'react-native';
 import { RulerPicker } from 'react-native-ruler-picker';
 import { Audio } from 'expo-av';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
@@ -153,14 +153,21 @@ export default function HomeScreen({ navigation }) {
                 TIMER_CATEGORY_KEY
               ]);
 
-              // Clear notification
-              await TimerNotificationManager.clearFromStorage();
+              // Clear notification (only on mobile platforms)
+              if (Platform.OS !== 'web') {
+                await TimerNotificationManager.clearFromStorage();
+              }
 
               // Update UI and navigate (deferred to avoid render-time state updates)
               setTimeout(() => {
                 setIsRunning(false);
                 setIsCompleted(true);
 
+                // Close any open modals (like "Give Up" confirmation) before showing Success screen
+                const state = navigation.getState();
+                if (state.routes.length > 1) {
+                  navigation.popToTop();
+                }
                 navigation.navigate('Success', { test10SecondMode });
               }, 0);
             } else {
@@ -344,6 +351,7 @@ export default function HomeScreen({ navigation }) {
         color: categoryColor,
         minutes,
         timestamp: Date.now(),
+        status: 'completed',
       };
 
       // Load existing sessions
@@ -360,6 +368,35 @@ export default function HomeScreen({ navigation }) {
       await AsyncStorage.setItem(COMPLETED_SESSIONS_KEY, JSON.stringify(sessions));
     } catch (error) {
       console.log('Error saving completed session:', error);
+    }
+  };
+
+  const saveFailedSession = async (category, minutes) => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const categoryColor = getCategoryColor(category);
+      const session = {
+        category,
+        color: categoryColor,
+        minutes,
+        timestamp: Date.now(),
+        status: 'failed',
+      };
+
+      // Load existing sessions
+      const existingData = await AsyncStorage.getItem(COMPLETED_SESSIONS_KEY);
+      const sessions = existingData ? JSON.parse(existingData) : {};
+
+      // Add today's session
+      if (!sessions[today]) {
+        sessions[today] = [];
+      }
+      sessions[today].push(session);
+
+      // Save back to AsyncStorage
+      await AsyncStorage.setItem(COMPLETED_SESSIONS_KEY, JSON.stringify(sessions));
+    } catch (error) {
+      console.log('Error saving failed session:', error);
     }
   };
 
@@ -401,7 +438,12 @@ export default function HomeScreen({ navigation }) {
       confirmText: 'Give Up',
       cancelText: 'No',
       confirmStyle: 'destructive',
-      onConfirm: handleReset,
+      onConfirm: async () => {
+        // Save failed session before resetting
+        await saveFailedSession(selectedCategory, sliderMinutes);
+        await handleReset();
+        navigation.navigate('Fail');
+      },
     });
   };
 

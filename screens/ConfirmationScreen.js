@@ -40,11 +40,14 @@ export default function ConfirmationScreen({ navigation, route }) {
     return null;
   }
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (onConfirm) {
-      onConfirm();
+      await onConfirm();
+      // Don't call goBack() - let the callback handle navigation
+    } else {
+      // If no callback, go back to dismiss the dialog
+      navigation.goBack();
     }
-    navigation.goBack();
   };
 
   return (

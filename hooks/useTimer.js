@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { Platform } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import TimerNotificationManager from '../services/TimerNotificationManager';
@@ -127,11 +128,19 @@ export function useTimer({
               TIMER_CATEGORY_KEY
             ]).catch(err => console.log('Error clearing timer state:', err));
 
-            // Cancel scheduled notification since timer completed in foreground
-            TimerNotificationManager.cancel().catch(err => console.log('Error canceling notification:', err));
+            // Cancel scheduled notification since timer completed in foreground (only on mobile platforms)
+            if (Platform.OS !== 'web') {
+              TimerNotificationManager.cancel().catch(err => console.log('Error canceling notification:', err));
+            }
 
             // Navigate to success screen (deferred to avoid render-time navigation)
+            // Close any open modals (like "Give Up" confirmation) before showing Success screen
             setTimeout(() => {
+              const state = navigation.getState();
+              // If there are other screens in the stack (like Confirmation modal), close them first
+              if (state.routes.length > 1) {
+                navigation.popToTop();
+              }
               navigation.navigate('Success', { test10SecondMode });
             }, 0);
             return 0;
@@ -204,8 +213,10 @@ export function useTimer({
       }
     }
 
-    // Schedule notification for completion time
-    await TimerNotificationManager.scheduleCompletion(minutes, minutes, selectedCategory);
+    // Schedule notification for completion time (only on mobile platforms)
+    if (Platform.OS !== 'web') {
+      await TimerNotificationManager.scheduleCompletion(minutes, minutes, selectedCategory);
+    }
 
     // Save timer state to AsyncStorage for background recovery
     const endTime = Date.now() + (minutes * 60 * 1000);
@@ -229,8 +240,10 @@ export function useTimer({
     setTimeInSeconds(minutes * 60);
     setSliderMinutes(minutes);
 
-    // Cancel scheduled notification
-    await TimerNotificationManager.cancel();
+    // Cancel scheduled notification (only on mobile platforms)
+    if (Platform.OS !== 'web') {
+      await TimerNotificationManager.cancel();
+    }
 
     // Clear timer state from AsyncStorage
     try {

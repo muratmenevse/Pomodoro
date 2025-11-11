@@ -5,6 +5,7 @@ import ProgressScreen from '../screens/ProgressScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import CharacterTestScreen from '../screens/CharacterTestScreen';
 import SuccessScreen from '../screens/SuccessScreen';
+import FailScreen from '../screens/FailScreen';
 import BreakScreen from '../screens/BreakScreen';
 import UpgradeScreen from '../screens/UpgradeScreen';
 import CategorySelectionScreen from '../screens/CategorySelectionScreen';
@@ -88,6 +89,14 @@ export default function AppNavigator() {
       <Stack.Screen
         name="Success"
         component={SuccessScreen}
+        options={{
+          presentation: 'transparentModal',
+        }}
+      />
+
+      <Stack.Screen
+        name="Fail"
+        component={FailScreen}
         options={{
           presentation: 'transparentModal',
         }}
