@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   Switch,
   Dimensions,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
 import { useMembership } from '../contexts/MembershipContext';
 import MembershipBadge from '../components/MembershipBadge';
@@ -14,6 +15,7 @@ import RevenueCatService from '../services/RevenueCatService';
 import ScreenContainer from '../components/ScreenContainer';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const WEEK_START_DAY_KEY = '@week_start_day';
 
 export default function SettingsScreen({ navigation }) {
   const {
@@ -25,12 +27,38 @@ export default function SettingsScreen({ navigation }) {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [restoring, setRestoring] = useState(false);
+  const [weekStartDay, setWeekStartDay] = useState('Sunday');
 
   const [fontsLoaded] = useFonts({
     Poppins_400Regular,
     Poppins_600SemiBold,
     Poppins_700Bold,
   });
+
+  // Load week start day preference
+  useEffect(() => {
+    loadWeekStartDay();
+  }, []);
+
+  const loadWeekStartDay = async () => {
+    try {
+      const saved = await AsyncStorage.getItem(WEEK_START_DAY_KEY);
+      if (saved) {
+        setWeekStartDay(saved);
+      }
+    } catch (error) {
+      console.log('Error loading week start day:', error);
+    }
+  };
+
+  const handleWeekStartDayChange = async (day) => {
+    try {
+      await AsyncStorage.setItem(WEEK_START_DAY_KEY, day);
+      setWeekStartDay(day);
+    } catch (error) {
+      console.log('Error saving week start day:', error);
+    }
+  };
 
   if (!fontsLoaded) {
     return null;
@@ -62,9 +90,7 @@ export default function SettingsScreen({ navigation }) {
           id: 'membership_status',
           title: 'Plan',
           value: isPlusMember ? 'Plus' : 'Free',
-          onPress: !isPlusMember ? handleUpgrade : null,
           showBadge: isPlusMember,
-          actionText: !isPlusMember ? 'Upgrade' : null,
         },
         {
           id: 'restore_purchases',
@@ -94,24 +120,35 @@ export default function SettingsScreen({ navigation }) {
       ],
     },
     {
+      title: 'DATE',
+      items: [
+        {
+          id: 'week_start_day',
+          title: 'Week Start Day',
+          value: weekStartDay,
+          onPress: () => {
+            // Show selection options
+            navigation.navigate('Confirmation', {
+              title: 'Week Start Day',
+              message: 'Choose the first day of the week',
+              confirmText: 'Sunday',
+              cancelText: 'Monday',
+              confirmStyle: weekStartDay === 'Sunday' ? 'default' : 'default',
+              onConfirm: () => handleWeekStartDayChange('Sunday'),
+              onCancel: () => handleWeekStartDayChange('Monday'),
+            });
+          },
+          showArrow: true,
+        },
+      ],
+    },
+    {
       title: 'About',
       items: [
         {
           id: 'version',
           title: 'Version',
           value: '1.0.0',
-        },
-        {
-          id: 'terms',
-          title: 'Terms of Service',
-          onPress: () => console.log('Show terms'),
-          showArrow: true,
-        },
-        {
-          id: 'privacy',
-          title: 'Privacy Policy',
-          onPress: () => console.log('Show privacy'),
-          showArrow: true,
         },
       ],
     },
@@ -122,6 +159,16 @@ export default function SettingsScreen({ navigation }) {
       onClose={() => navigation.goBack()}
       title="Settings"
     >
+        {/* Plus Features Info */}
+        {!isPlusMember && (
+          <View style={styles.plusInfoContainer}>
+            <Text style={styles.plusInfoTitle}>Unlock Plus Features</Text>
+            <TouchableOpacity style={styles.upgradeButton} onPress={handleUpgrade}>
+              <Text style={styles.upgradeButtonText}>Upgrade to Plus</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {settingSections.map((section, sectionIndex) => (
           <View key={section.title} style={styles.section}>
             <Text style={styles.sectionTitle}>{section.title}</Text>
@@ -174,19 +221,6 @@ export default function SettingsScreen({ navigation }) {
             </View>
           </View>
         ))}
-
-        {/* Plus Features Info */}
-        {!isPlusMember && (
-          <View style={styles.plusInfoContainer}>
-            <Text style={styles.plusInfoTitle}>Unlock Plus Features</Text>
-            <Text style={styles.plusInfoDescription}>
-              Get unlimited categories, analytics, themes, and more!
-            </Text>
-            <TouchableOpacity style={styles.upgradeButton} onPress={handleUpgrade}>
-              <Text style={styles.upgradeButtonText}>Upgrade to Plus</Text>
-            </TouchableOpacity>
-          </View>
-        )}
     </ScreenContainer>
   );
 }
@@ -206,7 +240,7 @@ const styles = StyleSheet.create({
   },
   sectionContent: {
     backgroundColor: '#FFFFFF',
-    marginHorizontal: 20,
+    marginVertical: 15,
     borderRadius: 15,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -271,17 +305,18 @@ const styles = StyleSheet.create({
     marginLeft: 5,
   },
   plusInfoContainer: {
-    margin: 20,
-    padding: 25,
+    marginTop: 15,
+    marginBottom: 25,
+    padding: 15,
     backgroundColor: 'rgba(156, 39, 176, 0.1)',
     borderRadius: 20,
     alignItems: 'center',
   },
   plusInfoTitle: {
-    fontSize: 20,
+    fontSize: 16,
     fontFamily: 'Poppins_700Bold',
     color: '#2C3E50',
-    marginBottom: 10,
+    marginBottom: 15,
   },
   plusInfoDescription: {
     fontSize: 14,
@@ -292,9 +327,9 @@ const styles = StyleSheet.create({
   },
   upgradeButton: {
     backgroundColor: '#9C27B0',
-    paddingHorizontal: 30,
-    paddingVertical: 15,
-    borderRadius: 25,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
@@ -302,7 +337,7 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   upgradeButtonText: {
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: 'Poppins_600SemiBold',
     color: '#FFFFFF',
   },

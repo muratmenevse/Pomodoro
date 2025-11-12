@@ -98,7 +98,7 @@ export default function UpgradeScreen({ navigation }) {
   return (
     <ScreenContainer
       onClose={() => navigation.goBack()}
-      title="Pomodoro Plus"
+      title="Tomito Plus"
       subtitle="Unlock all premium features"
     >
           {/* Features List */}
@@ -134,9 +134,9 @@ export default function UpgradeScreen({ navigation }) {
                     </View>
                   )}
                   <Text style={styles.planName}>Yearly</Text>
-                  <Text style={styles.planPrice}>$39.99</Text>
-                  <Text style={styles.planDescription}>$3.33 per month</Text>
-                  <Text style={styles.planSavings}>Save 33%</Text>
+                  <Text style={styles.planPrice}>$9.99</Text>
+                  <Text style={styles.planDescription}>$0.83 per month</Text>
+                  <Text style={styles.planSavings}>Save 16%</Text>
                 </TouchableOpacity>
 
                 {/* Monthly Plan */}
@@ -148,7 +148,7 @@ export default function UpgradeScreen({ navigation }) {
                   onPress={() => setSelectedPlan('monthly')}
                 >
                   <Text style={styles.planName}>Monthly</Text>
-                  <Text style={styles.planPrice}>$4.99</Text>
+                  <Text style={styles.planPrice}>$0.99</Text>
                   <Text style={styles.planDescription}>per month</Text>
                 </TouchableOpacity>
               </>
@@ -178,10 +178,6 @@ export default function UpgradeScreen({ navigation }) {
           >
             <Text style={styles.restoreButtonText}>Restore Purchases</Text>
           </TouchableOpacity>
-
-          <Text style={styles.termsText}>
-            Cancel anytime. Terms & Privacy apply.
-          </Text>
         </View>
     </ScreenContainer>
   );
@@ -305,12 +301,5 @@ const styles = StyleSheet.create({
     color: '#9C27B0',
     fontSize: 14,
     fontFamily: 'Poppins_600SemiBold',
-  },
-  termsText: {
-    fontSize: 11,
-    fontFamily: 'Poppins_400Regular',
-    color: '#8B8B8B',
-    textAlign: 'center',
-    marginTop: 10,
   },
 });

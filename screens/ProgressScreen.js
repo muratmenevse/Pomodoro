@@ -17,6 +17,7 @@ import { CHARACTER_STATES } from '../components/characterStates';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const COMPLETED_SESSIONS_KEY = '@completed_sessions';
+const WEEK_START_DAY_KEY = '@week_start_day';
 
 export default function ProgressScreen({ navigation, route }) {
   const { categories = [], testPlusMode = false } = route.params || {};
@@ -24,6 +25,7 @@ export default function ProgressScreen({ navigation, route }) {
   const [sessionData, setSessionData] = useState({});
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedView, setSelectedView] = useState('week'); // 'week', 'month', 'year'
+  const [weekStartDay, setWeekStartDay] = useState('Sunday');
 
   // In dev mode, allow testPlusMode to override actual membership
   const isPlusMember = __DEV__ && testPlusMode ? true : actualIsPlusMember;
@@ -40,6 +42,10 @@ export default function ProgressScreen({ navigation, route }) {
     }
   }, [isPlusMember]);
 
+  useEffect(() => {
+    loadWeekStartDay();
+  }, []);
+
   const loadSessionData = async () => {
     try {
       const data = await AsyncStorage.getItem(COMPLETED_SESSIONS_KEY);
@@ -51,25 +57,42 @@ export default function ProgressScreen({ navigation, route }) {
     }
   };
 
-  // Get current week's days (Monday - Sunday)
-  const getCurrentWeekDays = () => {
+  const loadWeekStartDay = async () => {
+    try {
+      const saved = await AsyncStorage.getItem(WEEK_START_DAY_KEY);
+      if (saved) {
+        setWeekStartDay(saved);
+      }
+    } catch (error) {
+      console.log('Error loading week start day:', error);
+    }
+  };
+
+  // Get current week's days based on week start preference
+  const getCurrentWeekDays = (startDay = 'Sunday') => {
     const today = new Date();
     const dayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
-    const monday = new Date(today);
-    // Adjust to get Monday (if today is Sunday, go back 6 days, otherwise go back (dayOfWeek - 1))
-    monday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+    const weekStart = new Date(today);
+
+    if (startDay === 'Monday') {
+      // Adjust to get Monday (if today is Sunday, go back 6 days, otherwise go back (dayOfWeek - 1))
+      weekStart.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+    } else {
+      // Sunday start: go back dayOfWeek days (if Sunday, go back 0)
+      weekStart.setDate(today.getDate() - dayOfWeek);
+    }
 
     const days = [];
     for (let i = 0; i < 7; i++) {
-      const date = new Date(monday);
-      date.setDate(monday.getDate() + i);
+      const date = new Date(weekStart);
+      date.setDate(weekStart.getDate() + i);
       days.push(date);
     }
     return days;
   };
 
-  // Get current month's weeks
-  const getCurrentMonthWeeks = () => {
+  // Get current month's weeks based on week start preference
+  const getCurrentMonthWeeks = (startDay = 'Sunday') => {
     const today = new Date();
     const year = today.getFullYear();
     const month = today.getMonth();
@@ -79,25 +102,32 @@ export default function ProgressScreen({ navigation, route }) {
     // Last day of the month
     const lastDay = new Date(year, month + 1, 0);
 
-    // Find Monday of the week containing the first day
+    // Find week start day of the week containing the first day
     const firstDayOfWeek = firstDay.getDay();
-    const firstMonday = new Date(firstDay);
-    firstMonday.setDate(firstDay.getDate() - (firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1));
+    const firstWeekStart = new Date(firstDay);
+
+    if (startDay === 'Monday') {
+      // Find Monday (if first day is Sunday, go back 6 days, otherwise go back (dayOfWeek - 1))
+      firstWeekStart.setDate(firstDay.getDate() - (firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1));
+    } else {
+      // Find Sunday: go back firstDayOfWeek days
+      firstWeekStart.setDate(firstDay.getDate() - firstDayOfWeek);
+    }
 
     const weeks = [];
-    let currentMonday = new Date(firstMonday);
+    let currentWeekStart = new Date(firstWeekStart);
 
     // Keep adding weeks until we pass the last day of the month
-    while (currentMonday <= lastDay) {
-      const weekEnd = new Date(currentMonday);
-      weekEnd.setDate(currentMonday.getDate() + 6); // Sunday
+    while (currentWeekStart <= lastDay) {
+      const weekEnd = new Date(currentWeekStart);
+      weekEnd.setDate(currentWeekStart.getDate() + 6); // Last day of week
 
       weeks.push({
-        start: new Date(currentMonday),
+        start: new Date(currentWeekStart),
         end: weekEnd
       });
 
-      currentMonday.setDate(currentMonday.getDate() + 7); // Next Monday
+      currentWeekStart.setDate(currentWeekStart.getDate() + 7); // Next week start
     }
 
     return weeks;
@@ -172,7 +202,7 @@ export default function ProgressScreen({ navigation, route }) {
   // Generate header text based on selected view
   const getHeaderText = () => {
     if (selectedView === 'week') {
-      const weekDays = getCurrentWeekDays();
+      const weekDays = getCurrentWeekDays(weekStartDay);
       const firstDay = weekDays[0];
       const lastDay = weekDays[6];
 
@@ -203,9 +233,9 @@ export default function ProgressScreen({ navigation, route }) {
 
     // Get dates based on selected view
     if (selectedView === 'week') {
-      dates = getCurrentWeekDays();
+      dates = getCurrentWeekDays(weekStartDay);
     } else if (selectedView === 'month') {
-      const weeks = getCurrentMonthWeeks();
+      const weeks = getCurrentMonthWeeks(weekStartDay);
       // Get all dates in the month's weeks
       weeks.forEach(week => {
         const currentDate = new Date(week.start);
@@ -258,7 +288,7 @@ export default function ProgressScreen({ navigation, route }) {
     let totalSessions = 0;
 
     if (selectedView === 'week') {
-      const weekDays = getCurrentWeekDays();
+      const weekDays = getCurrentWeekDays(weekStartDay);
       weekDays.forEach(date => {
         const dateString = date.toISOString().split('T')[0];
         const sessions = sessionData[dateString] || [];
@@ -267,7 +297,7 @@ export default function ProgressScreen({ navigation, route }) {
         totalSessions += filteredSessions.length;
       });
     } else if (selectedView === 'month') {
-      const weeks = getCurrentMonthWeeks();
+      const weeks = getCurrentMonthWeeks(weekStartDay);
       weeks.forEach(week => {
         const currentDate = new Date(week.start);
         while (currentDate <= week.end) {
@@ -332,7 +362,7 @@ export default function ProgressScreen({ navigation, route }) {
   let barCount = 7; // default for week view
 
   if (selectedView === 'week') {
-    const weekDays = getCurrentWeekDays();
+    const weekDays = getCurrentWeekDays(weekStartDay);
     chartData = weekDays.map(date => ({
       date,
       label: `${getDayName(date)}\n${getDayNumber(date)}`,
@@ -341,7 +371,7 @@ export default function ProgressScreen({ navigation, route }) {
     }));
     barCount = 7;
   } else if (selectedView === 'month') {
-    const weeks = getCurrentMonthWeeks();
+    const weeks = getCurrentMonthWeeks(weekStartDay);
     chartData = weeks.map(week => ({
       start: week.start,
       end: week.end,
