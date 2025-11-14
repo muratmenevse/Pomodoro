@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
+import { Audio } from 'expo-av';
 import ScreenContainer from '../components/ScreenContainer';
 import TomatoCharacter from '../components/TomatoCharacter';
 import { CHARACTER_STATES } from '../components/characterStates';
@@ -16,12 +17,26 @@ export default function BreakScreen({ navigation, route }) {
 
   const [timeInSeconds, setTimeInSeconds] = useState(breakDuration);
   const intervalRef = useRef(null);
+  const [sound, setSound] = useState();
 
   const [fontsLoaded] = useFonts({
     Poppins_400Regular,
     Poppins_600SemiBold,
     Poppins_700Bold,
   });
+
+  // Play notification sound
+  const playNotificationSound = async () => {
+    try {
+      const { sound } = await Audio.Sound.createAsync(
+        require('../assets/sounds/successSound.m4a')
+      );
+      setSound(sound);
+      await sound.playAsync();
+    } catch (error) {
+      console.log('Error playing sound:', error);
+    }
+  };
 
   // Reset timer when screen mounts
   useEffect(() => {
@@ -34,6 +49,8 @@ export default function BreakScreen({ navigation, route }) {
       setTimeInSeconds((prevTime) => {
         if (prevTime <= 1) {
           clearInterval(intervalRef.current);
+          // Play sound when break completes
+          playNotificationSound();
           // Defer navigation to avoid render-time state updates
           setTimeout(() => {
             handleClose();
@@ -50,6 +67,15 @@ export default function BreakScreen({ navigation, route }) {
       }
     };
   }, []);
+
+  // Cleanup sound on unmount
+  useEffect(() => {
+    return sound
+      ? () => {
+          sound.unloadAsync();
+        }
+      : undefined;
+  }, [sound]);
 
   // Format time as MM:SS
   const formatTime = (seconds) => {
