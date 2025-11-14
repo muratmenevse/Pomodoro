@@ -19,7 +19,7 @@ export default function FailScreen({ navigation, route }) {
   }
 
   const handleMainMenu = () => {
-    navigation.navigate('Home');
+    navigation.popToTop();
   };
 
   return (

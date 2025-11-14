@@ -19,7 +19,7 @@ export default function SuccessScreen({ navigation, route }) {
   }
 
   const handleClose = () => {
-    navigation.goBack();
+    navigation.popToTop();
   };
 
   const handleBreak = () => {
