@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
+import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Rect, Text as SvgText, Line } from 'react-native-svg';
 import { useMembership } from '../contexts/MembershipContext';
@@ -42,9 +43,12 @@ export default function ProgressScreen({ navigation, route }) {
     }
   }, [isPlusMember]);
 
-  useEffect(() => {
-    loadWeekStartDay();
-  }, []);
+  // Reload week start day whenever screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      loadWeekStartDay();
+    }, [])
+  );
 
   const loadSessionData = async () => {
     try {

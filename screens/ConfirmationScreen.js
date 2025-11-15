@@ -18,6 +18,7 @@ import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } fr
  * - confirmText: Text for confirm button (default: "Confirm")
  * - cancelText: Text for cancel button (default: "Cancel")
  * - onConfirm: Function to call when user confirms
+ * - onCancel: Function to call when user cancels
  * - confirmStyle: 'default' (purple) or 'destructive' (red) (default: 'default')
  */
 export default function ConfirmationScreen({ navigation, route }) {
@@ -27,6 +28,7 @@ export default function ConfirmationScreen({ navigation, route }) {
     confirmText = 'Confirm',
     cancelText = 'Cancel',
     onConfirm,
+    onCancel,
     confirmStyle = 'default',
   } = route.params || {};
 
@@ -43,11 +45,15 @@ export default function ConfirmationScreen({ navigation, route }) {
   const handleConfirm = async () => {
     if (onConfirm) {
       await onConfirm();
-      // Don't call goBack() - let the callback handle navigation
-    } else {
-      // If no callback, go back to dismiss the dialog
-      navigation.goBack();
     }
+    navigation.goBack();
+  };
+
+  const handleCancel = async () => {
+    if (onCancel) {
+      await onCancel();
+    }
+    navigation.goBack();
   };
 
   return (
@@ -70,7 +76,7 @@ export default function ConfirmationScreen({ navigation, route }) {
         <View style={styles.buttonContainer}>
           <TouchableOpacity
             style={styles.cancelButton}
-            onPress={() => navigation.goBack()}
+            onPress={handleCancel}
             activeOpacity={0.8}
           >
             <Text style={styles.cancelButtonText}>{cancelText}</Text>
