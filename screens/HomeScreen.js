@@ -224,7 +224,7 @@ export default function HomeScreen({ navigation }) {
     };
 
     loadSavedData();
-  }, []);
+  }, [customCategories]);
 
   // Load test pages setting (dev only)
   useEffect(() => {

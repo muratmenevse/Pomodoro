@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold } from '@expo-google-fonts/poppins';
 import { useMembership } from '../contexts/MembershipContext';
@@ -12,6 +12,9 @@ export default function CategorySelectionScreen({ navigation, route }) {
   const { customCategories, isPlusMember: actualIsPlusMember, deleteCustomCategory } = useMembership();
 
   const { categories, selectedCategory, onSelect, testPlusMode = false, deleteDefaultCategory, onPlusClick } = route.params || {};
+
+  // Track current selection locally for visual updates
+  const [currentSelection, setCurrentSelection] = useState(selectedCategory);
 
   // In dev mode, allow testPlusMode to override actual membership
   const isPlusMember = __DEV__ && testPlusMode ? true : actualIsPlusMember;
@@ -32,7 +35,12 @@ export default function CategorySelectionScreen({ navigation, route }) {
       editingCategory: category,
       deleteDefaultCategory,
       deleteCustomCategory,
-      onAdd: () => {}, // Category is automatically added to context
+      onAdd: (updatedCategory) => {
+        // Select the renamed category to update HomeScreen
+        if (onSelect && updatedCategory) {
+          onSelect(updatedCategory.name);
+        }
+      },
     });
   };
 
@@ -74,7 +82,7 @@ export default function CategorySelectionScreen({ navigation, route }) {
       {/* Category list */}
       <View style={styles.categoryList}>
           {allCategories.map((category) => {
-            const isSelected = category.name === selectedCategory;
+            const isSelected = category.name === currentSelection;
             return (
               <TouchableOpacity
                 key={category.name}
@@ -83,8 +91,8 @@ export default function CategorySelectionScreen({ navigation, route }) {
                   isSelected && styles.categoryCardSelected,
                 ]}
                 onPress={() => {
+                  setCurrentSelection(category.name);
                   onSelect(category.name);
-                  navigation.goBack();
                 }}
               >
                 {/* Color circle */}
@@ -121,6 +129,7 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   addButtonContainer: {
+    marginTop: 30,
     marginBottom: 75,
   },
   addButton: {

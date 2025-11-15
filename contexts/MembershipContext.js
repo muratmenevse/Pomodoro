@@ -158,6 +158,44 @@ export const MembershipProvider = ({ children }) => {
     return true;
   };
 
+  // Migrate category data in historical sessions (name and/or color)
+  const migrateSessionCategory = async (oldName, updates) => {
+    try {
+      const sessionsJson = await AsyncStorage.getItem('@completed_sessions');
+      if (!sessionsJson) return;
+
+      const sessions = JSON.parse(sessionsJson);
+      let modified = false;
+
+      // Update all sessions with old category name
+      for (const date in sessions) {
+        sessions[date] = sessions[date].map(session => {
+          if (session.category === oldName) {
+            modified = true;
+            const updatedSession = { ...session };
+            // Update name if changed
+            if (updates.name && updates.name !== oldName) {
+              updatedSession.category = updates.name;
+            }
+            // Update color if provided
+            if (updates.color) {
+              updatedSession.color = updates.color;
+            }
+            return updatedSession;
+          }
+          return session;
+        });
+      }
+
+      // Save back only if changes were made
+      if (modified) {
+        await AsyncStorage.setItem('@completed_sessions', JSON.stringify(sessions));
+      }
+    } catch (error) {
+      console.error('Error migrating session category data:', error);
+    }
+  };
+
   // Update a custom category
   const updateCustomCategory = async (categoryName, updates) => {
     if (!isPlusMember) {
@@ -168,6 +206,25 @@ export const MembershipProvider = ({ children }) => {
       cat.name === categoryName ? { ...cat, ...updates } : cat
     );
     await saveCustomCategories(updatedCategories);
+
+    // If category name or color changed, update all historical sessions
+    if ((updates.name && updates.name !== categoryName) || updates.color) {
+      await migrateSessionCategory(categoryName, updates);
+    }
+
+    // If category name changed, update selected category if it matches
+    if (updates.name && updates.name !== categoryName) {
+      // Update @selected_category if it matches the old name
+      try {
+        const selectedCategory = await AsyncStorage.getItem('@selected_category');
+        if (selectedCategory === categoryName) {
+          await AsyncStorage.setItem('@selected_category', updates.name);
+        }
+      } catch (error) {
+        console.error('Error updating selected category:', error);
+      }
+    }
+
     return true;
   };
 
