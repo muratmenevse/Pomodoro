@@ -10,6 +10,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
 import { useMembership } from '../contexts/MembershipContext';
+import { useConfirmation } from '../contexts/ConfirmationContext';
 import MembershipBadge from '../components/MembershipBadge';
 import RevenueCatService from '../services/RevenueCatService';
 import ScreenContainer from '../components/ScreenContainer';
@@ -23,6 +24,8 @@ export default function SettingsScreen({ navigation }) {
     membershipTier,
     restorePurchases,
   } = useMembership();
+
+  const { openConfirmation } = useConfirmation();
 
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
@@ -126,17 +129,18 @@ export default function SettingsScreen({ navigation }) {
           id: 'week_start_day',
           title: 'Week Start Day',
           value: weekStartDay,
-          onPress: () => {
+          onPress: async () => {
             // Show selection options
-            navigation.navigate('Confirmation', {
+            const confirmed = await openConfirmation({
               title: 'Week Start Day',
               message: 'Choose the first day of the week',
               confirmText: 'Sunday',
               cancelText: 'Monday',
-              confirmStyle: weekStartDay === 'Sunday' ? 'default' : 'default',
-              onConfirm: () => handleWeekStartDayChange('Sunday'),
-              onCancel: () => handleWeekStartDayChange('Monday'),
+              confirmStyle: 'default',
             });
+
+            // Sunday = confirmed (true), Monday = not confirmed (false)
+            handleWeekStartDayChange(confirmed ? 'Sunday' : 'Monday');
           },
           showArrow: true,
         },

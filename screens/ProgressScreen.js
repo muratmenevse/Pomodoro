@@ -159,9 +159,10 @@ export default function ProgressScreen({ navigation, route }) {
     const dateString = date.toISOString().split('T')[0];
     const sessions = sessionData[dateString] || [];
 
+    // Only count completed sessions (exclude failed sessions from focus time totals)
     const filteredSessions = category === 'All'
-      ? sessions
-      : sessions.filter(s => s.category === category);
+      ? sessions.filter(s => s.status === 'completed' || !s.status)
+      : sessions.filter(s => (s.status === 'completed' || !s.status) && s.category === category);
 
     return filteredSessions.reduce((total, session) => total + session.minutes, 0);
   };
@@ -205,7 +206,10 @@ export default function ProgressScreen({ navigation, route }) {
 
   // Generate header text based on selected view
   const getHeaderText = () => {
-    if (selectedView === 'week') {
+    if (selectedView === 'day') {
+      const today = new Date();
+      return today.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+    } else if (selectedView === 'week') {
       const weekDays = getCurrentWeekDays(weekStartDay);
       const firstDay = weekDays[0];
       const lastDay = weekDays[6];
@@ -236,7 +240,9 @@ export default function ProgressScreen({ navigation, route }) {
     let dates = [];
 
     // Get dates based on selected view
-    if (selectedView === 'week') {
+    if (selectedView === 'day') {
+      dates = [new Date()]; // Just today
+    } else if (selectedView === 'week') {
       dates = getCurrentWeekDays(weekStartDay);
     } else if (selectedView === 'month') {
       const weeks = getCurrentMonthWeeks(weekStartDay);
@@ -291,7 +297,13 @@ export default function ProgressScreen({ navigation, route }) {
   const getCompletedSessions = (status = 'completed') => {
     let totalSessions = 0;
 
-    if (selectedView === 'week') {
+    if (selectedView === 'day') {
+      const today = new Date();
+      const dateString = today.toISOString().split('T')[0];
+      const sessions = sessionData[dateString] || [];
+      const filteredSessions = sessions.filter(s => s.status === status || (!s.status && status === 'completed'));
+      totalSessions = filteredSessions.length;
+    } else if (selectedView === 'week') {
       const weekDays = getCurrentWeekDays(weekStartDay);
       weekDays.forEach(date => {
         const dateString = date.toISOString().split('T')[0];
@@ -425,6 +437,18 @@ export default function ProgressScreen({ navigation, route }) {
         <TouchableOpacity
           style={[
             styles.viewTab,
+            selectedView === 'day' && styles.viewTabActive
+          ]}
+          onPress={() => setSelectedView('day')}
+        >
+          <Text style={[
+            styles.viewTabText,
+            selectedView === 'day' && styles.viewTabTextActive
+          ]}>Day</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.viewTab,
             selectedView === 'week' && styles.viewTabActive
           ]}
           onPress={() => setSelectedView('week')}
@@ -467,115 +491,134 @@ export default function ProgressScreen({ navigation, route }) {
       <View style={styles.chartSection}>
         <Text style={styles.sectionTitle}>Successful Focus Time</Text>
 
+        {/* Day Summary View */}
+        {selectedView === 'day' && (
+          <View style={styles.daySummaryContainer}>
+            <Text style={styles.daySummaryText}>
+              {getTotalMinutes(new Date(), selectedCategory) > 0 ? (
+                <>
+                  You successfully completed <Text style={styles.daySummaryBold}>{getTotalMinutes(new Date(), selectedCategory)}</Text> minutes of focus today
+                </>
+              ) : (
+                "You haven't completed any focus sessions today"
+              )}
+            </Text>
+          </View>
+        )}
+
         {/* Bar Chart */}
-        <View style={styles.chartContainer}>
-        <Svg width={chartWidth + 70} height={chartHeight + 80}>
-          {/* Grid lines (every 15 minutes) and Y-axis labels (every 30 minutes) */}
-          {generateGridlines().map((value, index) => {
-            const y = TOP_PADDING + chartHeight - (value / (maxMinutes / 60)) * chartHeight;
-            const showLabel = value % 0.5 === 0; // Show label only at 30-minute intervals
-            const label = value === 0 ? '0' : value < 1 ? `${value * 60}m` : `${value}h`;
+        {selectedView !== 'day' && (
+          <View style={styles.chartContainer}>
+            <Svg width={chartWidth + 70} height={chartHeight + 80}>
+              {/* Grid lines (every 15 minutes) and Y-axis labels (every 30 minutes) */}
+              {generateGridlines().map((value, index) => {
+                const y = TOP_PADDING + chartHeight - (value / (maxMinutes / 60)) * chartHeight;
+                const showLabel = value % 0.5 === 0; // Show label only at 30-minute intervals
+                const label = value === 0 ? '0' : value < 1 ? `${value * 60}m` : `${value}h`;
 
-            return (
-              <React.Fragment key={index}>
-                <Line
-                  x1="30"
-                  y1={y}
-                  x2={chartWidth + 30}
-                  y2={y}
-                  stroke="rgba(139, 139, 139, 0.2)"
-                  strokeWidth="1"
-                />
-                {showLabel && (
-                  <SvgText
-                    x="5"
-                    y={y + 5}
-                    fill="#8B8B8B"
-                    fontSize="12"
-                    fontFamily="Poppins_400Regular"
-                  >
-                    {label}
-                  </SvgText>
-                )}
-              </React.Fragment>
-            );
-          })}
+                return (
+                  <React.Fragment key={index}>
+                    <Line
+                      x1="30"
+                      y1={y}
+                      x2={chartWidth + 30}
+                      y2={y}
+                      stroke="rgba(139, 139, 139, 0.2)"
+                      strokeWidth="1"
+                    />
+                    {showLabel && (
+                      <SvgText
+                        x="5"
+                        y={y + 5}
+                        fill="#8B8B8B"
+                        fontSize="12"
+                        fontFamily="Poppins_400Regular"
+                      >
+                        {label}
+                      </SvgText>
+                    )}
+                  </React.Fragment>
+                );
+              })}
 
-          {/* Bars */}
-          {chartData.map((data, index) => {
-            const barHeight = (data.minutes / maxMinutes) * chartHeight;
-            const x = 40 + index * (barWidth + 10);
-            const y = TOP_PADDING + chartHeight - barHeight;
+              {/* Bars */}
+              {chartData.map((data, index) => {
+                const barHeight = (data.minutes / maxMinutes) * chartHeight;
+                const x = 40 + index * (barWidth + 10);
+                const y = TOP_PADDING + chartHeight - barHeight;
 
-            // Split label by newline for multi-line display
-            const labelLines = data.label.split('\n');
+                // Split label by newline for multi-line display
+                const labelLines = data.label.split('\n');
 
-            return (
-              <React.Fragment key={index}>
-                <Rect
-                  x={x}
-                  y={y}
-                  width={barWidth}
-                  height={barHeight || 0}
-                  fill={data.isToday ? '#FF7A59' : 'rgba(139, 139, 139, 0.6)'}
-                  rx="4"
-                />
-                {/* Label (can be one or two lines) */}
-                {labelLines.map((line, lineIndex) => (
-                  <SvgText
-                    key={lineIndex}
-                    x={x + barWidth / 2}
-                    y={TOP_PADDING + chartHeight + 18 + (lineIndex * 14)}
-                    fill="#8B8B8B"
-                    fontSize="11"
-                    fontFamily="Poppins_400Regular"
-                    textAnchor="middle"
-                  >
-                    {line}
-                  </SvgText>
-                ))}
-              </React.Fragment>
-            );
-          })}
-        </Svg>
-      </View>
+                return (
+                  <React.Fragment key={index}>
+                    <Rect
+                      x={x}
+                      y={y}
+                      width={barWidth}
+                      height={barHeight || 0}
+                      fill={data.isToday ? '#FF7A59' : 'rgba(139, 139, 139, 0.6)'}
+                      rx="4"
+                    />
+                    {/* Label (can be one or two lines) */}
+                    {labelLines.map((line, lineIndex) => (
+                      <SvgText
+                        key={lineIndex}
+                        x={x + barWidth / 2}
+                        y={TOP_PADDING + chartHeight + 18 + (lineIndex * 14)}
+                        fill="#8B8B8B"
+                        fontSize="11"
+                        fontFamily="Poppins_400Regular"
+                        textAnchor="middle"
+                      >
+                        {line}
+                      </SvgText>
+                    ))}
+                  </React.Fragment>
+                );
+              })}
+            </Svg>
+          </View>
+        )}
 
-      {/* Category Filter */}
-      <View style={styles.categoryFilter}>
-        <TouchableOpacity
-          style={[
-            styles.categoryPill,
-            selectedCategory === 'All' && styles.categoryPillSelected,
-            { backgroundColor: selectedCategory === 'All' ? '#8B8B8B' : 'rgba(139, 139, 139, 0.15)' }
-          ]}
-          onPress={() => setSelectedCategory('All')}
-        >
-          <Text style={[
-            styles.categoryPillText,
-            selectedCategory === 'All' && styles.categoryPillTextSelected
-          ]}>All</Text>
-        </TouchableOpacity>
-
-        {filteredCategories.map((category) => {
-          const isSelected = selectedCategory === category.name;
-          return (
+        {/* Category Filter */}
+        {selectedView !== 'day' && (
+          <View style={styles.categoryFilter}>
             <TouchableOpacity
-              key={category.name}
               style={[
                 styles.categoryPill,
-                isSelected && styles.categoryPillSelected,
-                { backgroundColor: isSelected ? category.color : 'rgba(139, 139, 139, 0.15)' }
+                selectedCategory === 'All' && styles.categoryPillSelected,
+                { backgroundColor: selectedCategory === 'All' ? '#8B8B8B' : 'rgba(139, 139, 139, 0.15)' }
               ]}
-              onPress={() => setSelectedCategory(category.name)}
+              onPress={() => setSelectedCategory('All')}
             >
               <Text style={[
                 styles.categoryPillText,
-                isSelected && styles.categoryPillTextSelected
-              ]}>{category.name}</Text>
+                selectedCategory === 'All' && styles.categoryPillTextSelected
+              ]}>All</Text>
             </TouchableOpacity>
-          );
-        })}
-      </View>
+
+            {filteredCategories.map((category) => {
+              const isSelected = selectedCategory === category.name;
+              return (
+                <TouchableOpacity
+                  key={category.name}
+                  style={[
+                    styles.categoryPill,
+                    isSelected && styles.categoryPillSelected,
+                    { backgroundColor: isSelected ? category.color : 'rgba(139, 139, 139, 0.15)' }
+                  ]}
+                  onPress={() => setSelectedCategory(category.name)}
+                >
+                  <Text style={[
+                    styles.categoryPillText,
+                    isSelected && styles.categoryPillTextSelected
+                  ]}>{category.name}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
       </View>
 
       {/* Tomitos Section - show if there are any completed or failed sessions */}
@@ -695,26 +738,43 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 30,
   },
+  daySummaryContainer: {
+    paddingTop: 20,
+    paddingBottom: 40,
+    paddingHorizontal: 0,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+  },
+  daySummaryText: {
+    fontSize: 16,
+    fontFamily: 'Poppins_400Regular',
+    color: '#2C3E50',
+    textAlign: 'left',
+    lineHeight: 24,
+  },
+  daySummaryBold: {
+    fontFamily: 'Poppins_600SemiBold',
+  },
   chartSection: {
     backgroundColor: 'rgba(255, 255, 255, 0.8)',
     borderRadius: 16,
     marginVertical: 15,
     paddingTop: 20,
     paddingHorizontal: 10,
-    paddingLeft: 35,
+    paddingLeft: 20,
   },
   sectionTitle: {
     fontSize: 18,
     fontFamily: 'Poppins_600SemiBold',
     color: '#2C3E50',
-    marginBottom: 15,
+    marginBottom: 0,
     textAlign: 'left',
   },
   tomitosSection: {
     backgroundColor: 'rgba(255, 255, 255, 0.8)',
     borderRadius: 16,
     marginVertical: 15,
-    paddingHorizontal: 15,
+    paddingHorizontal: 20,
     paddingVertical: 20,
     alignItems: 'flex-start',
   },

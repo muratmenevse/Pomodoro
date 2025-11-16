@@ -52,10 +52,9 @@ export default function ScreenContainer({
       {/* Header */}
       <View style={[styles.header, headerStyle, { zIndex: 10 }]}>
         {/* Title and Subtitle */}
-        <View style={styles.titleContainer}>
-          {title && <Text style={styles.title}>{title}</Text>}
-          {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
-        </View>
+        {(title || subtitle) && (
+          <View style={styles.titleContainer}>{title && <Text style={styles.title}>{title}</Text>}{subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}</View>
+        )}
 
         {/* Membership Badge */}
         {shouldShowBadge && (

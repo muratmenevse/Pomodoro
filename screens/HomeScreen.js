@@ -8,6 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import TomatoCharacter from '../components/TomatoCharacter';
 import { CHARACTER_STATES } from '../components/characterStates';
 import { MembershipProvider, useMembership } from '../contexts/MembershipContext';
+import { useConfirmation } from '../contexts/ConfirmationContext';
 import HamburgerMenu from '../components/HamburgerMenu';
 import TestSettingsModal from '../components/TestSettingsModal';
 import RevenueCatService from '../services/RevenueCatService';
@@ -59,10 +60,10 @@ const TIMER_CONFIGS = {
     displayText: null,
   },
   test10Second: {
-    minMinutes: 10 / 60,  // 10 seconds in minutes
-    maxMinutes: 10 / 60,
+    minMinutes: 12 / 60,  // 12 seconds in minutes
+    maxMinutes: 12 / 60,
     stepInterval: 0,
-    defaultMinutes: 10 / 60,
+    defaultMinutes: 12 / 60,
     useSlider: false,
     displayText: 'Test Mode',
   },
@@ -78,6 +79,9 @@ const getTimerConfig = (test10SecondMode) => {
 export default function HomeScreen({ navigation }) {
   // Get membership context
   const { testPlusMode, customCategories, updateCustomCategoryTime } = useMembership();
+
+  // Get confirmation context
+  const { openConfirmation } = useConfirmation();
 
   // Load Poppins font - must be first
   const [fontsLoaded, fontError] = useFonts({
@@ -431,20 +435,21 @@ export default function HomeScreen({ navigation }) {
     test10SecondMode,
   });
 
-  const handleGiveUp = () => {
-    navigation.navigate('Confirmation', {
+  const handleGiveUp = async () => {
+    const confirmed = await openConfirmation({
       title: 'Are you sure you want to give up?',
       message: 'If you quit now, your progress won\'t be saved',
       confirmText: 'Give Up',
       cancelText: 'No',
       confirmStyle: 'destructive',
-      onConfirm: async () => {
-        // Save failed session before resetting
-        await saveFailedSession(selectedCategory, sliderMinutes);
-        await handleReset();
-        navigation.navigate('Fail');
-      },
     });
+
+    if (confirmed) {
+      // Save failed session before resetting
+      await saveFailedSession(selectedCategory, sliderMinutes);
+      await handleReset();
+      navigation.navigate('Fail');
+    }
   };
 
   // Get character state based on timer state

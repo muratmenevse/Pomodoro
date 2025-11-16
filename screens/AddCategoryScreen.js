@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
 import { useMembership } from '../contexts/MembershipContext';
+import { useConfirmation } from '../contexts/ConfirmationContext';
 import ScreenContainer from '../components/ScreenContainer';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -29,6 +30,7 @@ const COLOR_OPTIONS = [
 
 export default function AddCategoryScreen({ navigation, route }) {
   const { addCustomCategory, updateCustomCategory } = useMembership();
+  const { openConfirmation } = useConfirmation();
 
   const { onAdd, deleteDefaultCategory, deleteCustomCategory, editingCategory = null } = route.params || {};
 
@@ -94,15 +96,18 @@ export default function AddCategoryScreen({ navigation, route }) {
     }
   };
 
-  const handleDelete = () => {
-    navigation.navigate('Confirmation', {
+  const handleDelete = async () => {
+    const confirmed = await openConfirmation({
       title: 'Delete Category',
       message: `Are you sure you want to delete "${editingCategory?.name}"? This action cannot be undone.`,
       confirmText: 'Delete',
       cancelText: 'Cancel',
       confirmStyle: 'destructive',
-      onConfirm: handleConfirmDelete,
     });
+
+    if (confirmed) {
+      await handleConfirmDelete();
+    }
   };
 
   const handleConfirmDelete = async () => {

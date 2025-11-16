@@ -3,6 +3,8 @@ import { Platform } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { MembershipProvider } from './contexts/MembershipContext';
 import { ModalProvider } from './contexts/ModalContext';
+import { ConfirmationProvider } from './contexts/ConfirmationContext';
+import ConfirmationModal from './components/ConfirmationModal';
 import AppNavigator from './navigation/AppNavigator';
 import RevenueCatService from './services/RevenueCatService';
 import NotificationService from './services/NotificationService';
@@ -47,7 +49,10 @@ export default function App() {
     >
       <MembershipProvider>
         <ModalProvider>
-          <AppNavigator />
+          <ConfirmationProvider>
+            <AppNavigator />
+            <ConfirmationModal />
+          </ConfirmationProvider>
         </ModalProvider>
       </MembershipProvider>
     </NavigationContainer>

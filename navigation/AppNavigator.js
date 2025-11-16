@@ -10,7 +10,6 @@ import BreakScreen from '../screens/BreakScreen';
 import UpgradeScreen from '../screens/UpgradeScreen';
 import CategorySelectionScreen from '../screens/CategorySelectionScreen';
 import AddCategoryScreen from '../screens/AddCategoryScreen';
-import ConfirmationScreen from '../screens/ConfirmationScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -74,14 +73,6 @@ export default function AppNavigator() {
         component={AddCategoryScreen}
         options={{
           presentation: 'modal',
-        }}
-      />
-
-      <Stack.Screen
-        name="Confirmation"
-        component={ConfirmationScreen}
-        options={{
-          presentation: 'transparentModal',
         }}
       />
 

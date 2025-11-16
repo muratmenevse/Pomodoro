@@ -43,17 +43,17 @@ export default function ConfirmationScreen({ navigation, route }) {
   }
 
   const handleConfirm = async () => {
+    navigation.goBack();
     if (onConfirm) {
       await onConfirm();
     }
-    navigation.goBack();
   };
 
   const handleCancel = async () => {
+    navigation.goBack();
     if (onCancel) {
       await onCancel();
     }
-    navigation.goBack();
   };
 
   return (
