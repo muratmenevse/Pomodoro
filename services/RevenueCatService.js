@@ -15,32 +15,38 @@ class RevenueCatService {
     }
 
     try {
-      // Set log level for debugging
+      // Set log level (WARN in dev to reduce noise, ERROR in prod)
       if (__DEV__) {
-        Purchases.setLogLevel(LOG_LEVEL.DEBUG);
+        Purchases.setLogLevel(LOG_LEVEL.WARN);
       } else {
         Purchases.setLogLevel(LOG_LEVEL.ERROR);
       }
 
-      // Configure with API key based on platform
-      const apiKey = Platform.select({
-        ios: REVENUECAT_CONFIG.API_KEY_IOS,
-        android: REVENUECAT_CONFIG.API_KEY_ANDROID,
-      });
+      // Configure with API key based on environment and platform
+      // Use test key in development, production keys in release builds
+      const apiKey = __DEV__
+        ? REVENUECAT_CONFIG.API_KEY_TEST
+        : Platform.select({
+            ios: REVENUECAT_CONFIG.API_KEY_IOS,
+            android: REVENUECAT_CONFIG.API_KEY_ANDROID,
+          });
+
+      console.log('[RevenueCat] Attempting to configure with key:', apiKey?.substring(0, 10) + '...');
 
       if (apiKey && apiKey !== 'your_ios_api_key_here' && apiKey !== 'your_android_api_key_here') {
         await Purchases.configure({ apiKey });
         this.isConfigured = true;
+        console.log('[RevenueCat] Successfully configured!');
 
         // Get initial purchaser info
         await this.getPurchaserInfo();
       } else {
-        console.warn('RevenueCat API keys not configured. Running in mock mode.');
+        console.warn('[RevenueCat] API keys not configured. Running in mock mode.');
         // For development, we'll run in mock mode
         this.isConfigured = false;
       }
     } catch (error) {
-      console.error('Error configuring RevenueCat:', error);
+      console.error('[RevenueCat] Error configuring:', error);
       this.isConfigured = false;
     }
   }
@@ -83,7 +89,10 @@ class RevenueCatService {
 
   // Get available packages/products
   async getOfferings() {
+    console.log('[RevenueCat] getOfferings called, isConfigured:', this.isConfigured);
+
     if (!this.isConfigured) {
+      console.log('[RevenueCat] Returning MOCK offerings');
       // Return mock offerings for development
       return {
         current: {
@@ -114,10 +123,12 @@ class RevenueCatService {
     }
 
     try {
+      console.log('[RevenueCat] Fetching REAL offerings from RevenueCat...');
       const offerings = await Purchases.getOfferings();
+      console.log('[RevenueCat] Got offerings:', JSON.stringify(offerings, null, 2));
       return offerings;
     } catch (error) {
-      console.error('Error getting offerings:', error);
+      console.error('[RevenueCat] Error getting offerings:', error);
       return null;
     }
   }

@@ -15,6 +15,7 @@ import ScreenContainer from '../components/ScreenContainer';
 import PlusFeatureLock from '../components/PlusFeatureLock';
 import TomatoCharacter from '../components/TomatoCharacter';
 import { CHARACTER_STATES } from '../components/characterStates';
+import AnalyticsService from '../services/AnalyticsService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const COMPLETED_SESSIONS_KEY = '@completed_sessions';
@@ -42,6 +43,20 @@ export default function ProgressScreen({ navigation, route }) {
       loadSessionData();
     }
   }, [isPlusMember]);
+
+  // Track progress viewed when screen mounts (only if Plus member)
+  useEffect(() => {
+    if (isPlusMember) {
+      AnalyticsService.trackProgressViewed(selectedView);
+    }
+  }, [isPlusMember]);
+
+  // Track view changes
+  useEffect(() => {
+    if (isPlusMember) {
+      AnalyticsService.trackProgressViewed(selectedView);
+    }
+  }, [selectedView, isPlusMember]);
 
   // Reload week start day whenever screen comes into focus
   useFocusEffect(

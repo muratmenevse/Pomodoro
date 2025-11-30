@@ -11,9 +11,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
 import { useMembership } from '../contexts/MembershipContext';
 import { useConfirmation } from '../contexts/ConfirmationContext';
+import { useAnalyticsConsent } from '../contexts/AnalyticsConsentContext';
 import MembershipBadge from '../components/MembershipBadge';
 import RevenueCatService from '../services/RevenueCatService';
 import ScreenContainer from '../components/ScreenContainer';
+import AnalyticsService from '../services/AnalyticsService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const WEEK_START_DAY_KEY = '@week_start_day';
@@ -26,6 +28,7 @@ export default function SettingsScreen({ navigation }) {
   } = useMembership();
 
   const { openConfirmation } = useConfirmation();
+  const { consentGranted, grantConsent, revokeConsent } = useAnalyticsConsent();
 
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
@@ -37,6 +40,11 @@ export default function SettingsScreen({ navigation }) {
     Poppins_600SemiBold,
     Poppins_700Bold,
   });
+
+  // Track settings opened
+  useEffect(() => {
+    AnalyticsService.trackSettingsOpened();
+  }, []);
 
   // Load week start day preference
   useEffect(() => {
@@ -58,8 +66,21 @@ export default function SettingsScreen({ navigation }) {
     try {
       await AsyncStorage.setItem(WEEK_START_DAY_KEY, day);
       setWeekStartDay(day);
+      // Track week start day change
+      await AnalyticsService.trackEvent('week_start_day_changed', {
+        week_start_day: day,
+      });
     } catch (error) {
       console.log('Error saving week start day:', error);
+    }
+  };
+
+  const handleAnalyticsConsentToggle = async (value) => {
+    const apiKey = process.env.EXPO_PUBLIC_POSTHOG_API_KEY || 'phc_test_key_dev_only';
+    if (value) {
+      await grantConsent(apiKey);
+    } else {
+      await revokeConsent();
     }
   };
 
@@ -119,6 +140,13 @@ export default function SettingsScreen({ navigation }) {
           hasSwitch: true,
           value: notificationsEnabled,
           onValueChange: setNotificationsEnabled,
+        },
+        {
+          id: 'analytics_consent',
+          title: 'Analytics & Insights',
+          hasSwitch: true,
+          value: consentGranted,
+          onValueChange: handleAnalyticsConsentToggle,
         },
       ],
     },

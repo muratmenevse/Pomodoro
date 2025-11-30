@@ -16,6 +16,8 @@ import TimerNotificationManager from '../services/TimerNotificationManager';
 import NotificationService from '../services/NotificationService';
 import Svg, { Path } from 'react-native-svg';
 import { useTimer } from '../hooks/useTimer';
+import AnalyticsService from '../services/AnalyticsService';
+import { ANALYTICS_EVENTS } from '../constants/analytics';
 
 // Get screen dimensions for responsive design
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -298,6 +300,10 @@ export default function HomeScreen({ navigation }) {
       setSliderMinutes(minutes);
       setTimeInSeconds(minutes * 60);
 
+      // Track category selection
+      const isCustom = customCategories.some(cat => cat.name === categoryName);
+      await AnalyticsService.trackCategorySelected(categoryName, isCustom);
+
       // Save to AsyncStorage
       try {
         await AsyncStorage.setItem(CATEGORY_STORAGE_KEY, categoryName);
@@ -370,6 +376,9 @@ export default function HomeScreen({ navigation }) {
 
       // Save back to AsyncStorage
       await AsyncStorage.setItem(COMPLETED_SESSIONS_KEY, JSON.stringify(sessions));
+
+      // Track completion
+      await AnalyticsService.trackTimerCompleted(minutes, category);
     } catch (error) {
       console.log('Error saving completed session:', error);
     }
@@ -399,6 +408,9 @@ export default function HomeScreen({ navigation }) {
 
       // Save back to AsyncStorage
       await AsyncStorage.setItem(COMPLETED_SESSIONS_KEY, JSON.stringify(sessions));
+
+      // Track failure
+      await AnalyticsService.trackTimerFailed(minutes, category, 'gave_up');
     } catch (error) {
       console.log('Error saving failed session:', error);
     }

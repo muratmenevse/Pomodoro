@@ -33,9 +33,11 @@ export const MEMBERSHIP_LIMITS = {
 
 // RevenueCat configuration
 export const REVENUECAT_CONFIG = {
-  // These will be configured later with actual RevenueCat keys
-  API_KEY_IOS: 'your_ios_api_key_here',
+  // Production keys
+  API_KEY_IOS: 'appl_hIsxVYhqWkJahprSkVUzxfWfpKG',
   API_KEY_ANDROID: 'your_android_api_key_here',
+  // Test/Sandbox key (used in development)
+  API_KEY_TEST: 'test_lGFEyVHcoBmiKOzJoBMJJLBMSrS',
   ENTITLEMENT_ID: 'plus',
   PRODUCT_IDS: {
     MONTHLY: 'pomodoro_plus_monthly',

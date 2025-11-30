@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import TimerNotificationManager from '../services/TimerNotificationManager';
+import AnalyticsService from '../services/AnalyticsService';
 
 // AsyncStorage keys
 const TIMER_END_TIME_KEY = '@active_timer_end_time';
@@ -177,6 +178,9 @@ export function useTimer({
     const minutes = timerConfig.useSlider ? sliderMinutes : timerConfig.defaultMinutes;
     setSessionStartMinutes(minutes);
     setTimeInSeconds(minutes * 60);
+
+    // Track timer started
+    await AnalyticsService.trackTimerStarted(minutes, selectedCategory);
 
     // Update category default time (only if not in test mode and time has changed)
     if (!test10SecondMode) {

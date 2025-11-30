@@ -11,6 +11,7 @@ import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } fr
 import RevenueCatService from '../services/RevenueCatService';
 import { useMembership } from '../contexts/MembershipContext';
 import ScreenContainer from '../components/ScreenContainer';
+import AnalyticsService from '../services/AnalyticsService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -29,22 +30,44 @@ export default function UpgradeScreen({ navigation }) {
 
   useEffect(() => {
     loadOfferings();
+    // Track premium screen viewed
+    AnalyticsService.trackPremiumViewed();
   }, []);
 
   const loadOfferings = async () => {
     setLoading(true);
     try {
-      const offerings = await RevenueCatService.getOfferings();
-      setOfferings(offerings);
+      console.log('[UpgradeScreen] Loading offerings...');
+      const fetchedOfferings = await RevenueCatService.getOfferings();
+      console.log('[UpgradeScreen] Received offerings:', fetchedOfferings);
+      console.log('[UpgradeScreen] Packages:', fetchedOfferings?.current?.availablePackages);
+      setOfferings(fetchedOfferings);
     } catch (error) {
-      console.error('Error loading offerings:', error);
+      console.error('[UpgradeScreen] Error loading offerings:', error);
     } finally {
       setLoading(false);
     }
   };
 
+  // Extract packages from offerings
+  // RevenueCat uses $rc_monthly, $rc_annual etc. or we can use the direct monthly/annual properties
+  const yearlyPackage = offerings?.current?.annual || null;
+  const monthlyPackage = offerings?.current?.monthly || null;
+
+  // Calculate dynamic pricing info
+  const yearlyPrice = yearlyPackage?.product?.price || 0;
+  const monthlyPrice = monthlyPackage?.product?.price || 0;
+  const monthlyEquivalent = yearlyPrice > 0 ? (yearlyPrice / 12).toFixed(2) : '0.00';
+  const discountPercent = monthlyPrice > 0
+    ? Math.round(((monthlyPrice * 12 - yearlyPrice) / (monthlyPrice * 12)) * 100)
+    : 0;
+
   const handlePurchase = async () => {
     setPurchasing(true);
+
+    // Track purchase initiation
+    await AnalyticsService.trackPremiumPurchaseInitiated(selectedPlan);
+
     try {
       const productId = selectedPlan === 'yearly'
         ? 'pomodoro_plus_yearly'
@@ -53,6 +76,12 @@ export default function UpgradeScreen({ navigation }) {
       const result = await RevenueCatService.purchaseProduct(productId);
 
       if (result && result.customerInfo) {
+        // Track successful purchase with actual price
+        const pkg = selectedPlan === 'yearly' ? yearlyPackage : monthlyPackage;
+        const price = pkg?.product?.price || 0;
+        const currency = pkg?.product?.currencyCode || 'USD';
+        await AnalyticsService.trackPremiumPurchased(selectedPlan, price, currency);
+
         // Update membership status
         await upgradeToPlus();
         navigation.goBack();
@@ -134,9 +163,15 @@ export default function UpgradeScreen({ navigation }) {
                     </View>
                   )}
                   <Text style={styles.planName}>Yearly</Text>
-                  <Text style={styles.planPrice}>$9.99</Text>
-                  <Text style={styles.planDescription}>$0.83 per month</Text>
-                  <Text style={styles.planSavings}>Save 16%</Text>
+                  <Text style={styles.planPrice}>
+                    {yearlyPackage?.product?.priceString || '$--'}
+                  </Text>
+                  <Text style={styles.planDescription}>
+                    ${monthlyEquivalent} per month
+                  </Text>
+                  {discountPercent > 0 && (
+                    <Text style={styles.planSavings}>Save {discountPercent}%</Text>
+                  )}
                 </TouchableOpacity>
 
                 {/* Monthly Plan */}
@@ -148,7 +183,9 @@ export default function UpgradeScreen({ navigation }) {
                   onPress={() => setSelectedPlan('monthly')}
                 >
                   <Text style={styles.planName}>Monthly</Text>
-                  <Text style={styles.planPrice}>$0.99</Text>
+                  <Text style={styles.planPrice}>
+                    {monthlyPackage?.product?.priceString || '$--'}
+                  </Text>
                   <Text style={styles.planDescription}>per month</Text>
                 </TouchableOpacity>
               </>
