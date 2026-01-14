@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -28,6 +28,7 @@ export default function ScreenContainer({
   isPlusFeature = false,
 }) {
   const { isPlusMember } = useMembership();
+  const [isScrolled, setIsScrolled] = useState(false);
 
   const [fontsLoaded] = useFonts({
     Poppins_400Regular,
@@ -41,16 +42,23 @@ export default function ScreenContainer({
   // Auto-show badge if isPlusFeature and user is Plus member
   const shouldShowBadge = showMembershipBadge || (isPlusFeature && isPlusMember);
 
+  const handleScroll = (event) => {
+    const scrollY = event.nativeEvent.contentOffset.y;
+    setIsScrolled(scrollY > 0);
+  };
+
   const ContentWrapper = scrollable ? ScrollView : View;
   const scrollProps = scrollable ? {
     showsVerticalScrollIndicator: false,
     contentContainerStyle: styles.scrollContent,
+    onScroll: handleScroll,
+    scrollEventThrottle: 16,
   } : {};
 
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={[styles.header, headerStyle, { zIndex: 10 }]}>
+      <View style={[styles.header, isScrolled && styles.headerScrolled, headerStyle, { zIndex: 10 }]}>
         {/* Title and Subtitle */}
         {(title || subtitle) && (
           <View style={styles.titleContainer}>{title && <Text style={styles.title}>{title}</Text>}{subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}</View>
@@ -87,6 +95,7 @@ export default function ScreenContainer({
 const styles = StyleSheet.create({
   container: COMMON_MODAL_STYLES.container,
   header: COMMON_MODAL_STYLES.header,
+  headerScrolled: COMMON_MODAL_STYLES.headerScrolled,
   titleContainer: {
     alignItems: 'center',
     flex: 1,

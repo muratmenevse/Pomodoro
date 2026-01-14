@@ -32,7 +32,7 @@ export default function AppNavigator() {
         name="Progress"
         component={ProgressScreen}
         options={{
-          presentation: 'modal',
+          presentation: 'fullScreenModal',
         }}
       />
 
@@ -40,7 +40,7 @@ export default function AppNavigator() {
         name="Settings"
         component={SettingsScreen}
         options={{
-          presentation: 'modal',
+          presentation: 'fullScreenModal',
         }}
       />
 
@@ -48,7 +48,7 @@ export default function AppNavigator() {
         name="CharacterTest"
         component={CharacterTestScreen}
         options={{
-          presentation: 'modal',
+          presentation: 'fullScreenModal',
         }}
       />
 
@@ -56,7 +56,7 @@ export default function AppNavigator() {
         name="Upgrade"
         component={UpgradeScreen}
         options={{
-          presentation: 'modal',
+          presentation: 'fullScreenModal',
         }}
       />
 
@@ -64,7 +64,7 @@ export default function AppNavigator() {
         name="CategorySelection"
         component={CategorySelectionScreen}
         options={{
-          presentation: 'modal',
+          presentation: 'fullScreenModal',
         }}
       />
 
@@ -72,7 +72,7 @@ export default function AppNavigator() {
         name="AddCategory"
         component={AddCategoryScreen}
         options={{
-          presentation: 'modal',
+          presentation: 'fullScreenModal',
         }}
       />
 

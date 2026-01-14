@@ -33,12 +33,12 @@ export const MEMBERSHIP_LIMITS = {
 
 // RevenueCat configuration
 export const REVENUECAT_CONFIG = {
-  // Production keys
-  API_KEY_IOS: 'appl_hIsxVYhqWkJahprSkVUzxfWfpKG',
-  API_KEY_ANDROID: 'your_android_api_key_here',
+  // Production keys (from .env)
+  API_KEY_IOS: process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY || '',
+  API_KEY_ANDROID: process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY || '',
   // Test/Sandbox key (used in development)
-  API_KEY_TEST: 'test_lGFEyVHcoBmiKOzJoBMJJLBMSrS',
-  ENTITLEMENT_ID: 'plus',
+  API_KEY_TEST: process.env.EXPO_PUBLIC_REVENUECAT_TEST_KEY || '',
+  ENTITLEMENT_ID: 'Plus',
   PRODUCT_IDS: {
     MONTHLY: 'pomodoro_plus_monthly',
     YEARLY: 'pomodoro_plus_yearly',

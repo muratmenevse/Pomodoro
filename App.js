@@ -11,25 +11,23 @@ import AppNavigator from './navigation/AppNavigator';
 import RevenueCatService from './services/RevenueCatService';
 import NotificationService from './services/NotificationService';
 import AnalyticsService from './services/AnalyticsService';
-import { ANALYTICS_EVENTS, USER_PROPERTIES } from './constants/analytics';
+import { ANALYTICS_EVENTS, USER_PROPERTIES, POSTHOG_CONFIG } from './constants/analytics';
 
 export default function App() {
   const navigationRef = useRef(null);
   const isNavigationReady = useRef(false);
 
-  // Initialize RevenueCat on app start
+  // Initialize RevenueCat and Analytics on app start
   useEffect(() => {
-    RevenueCatService.configure();
-  }, []);
-
-  // Initialize Analytics on app start
-  useEffect(() => {
-    const initializeAnalytics = async () => {
+    const initializeServices = async () => {
       try {
-        // Get PostHog API key from environment
-        const apiKey = process.env.EXPO_PUBLIC_POSTHOG_API_KEY || 'phc_test_key_dev_only';
+        // First, configure RevenueCat and wait for it
+        await RevenueCatService.configure();
 
-        // Get user ID from RevenueCat (may be null on first launch)
+        // Get PostHog API key from config
+        const apiKey = POSTHOG_CONFIG.API_KEY;
+
+        // Now get user ID from RevenueCat (should have real ID)
         const purchaserInfo = await RevenueCatService.getPurchaserInfo();
         const userId = purchaserInfo?.originalAppUserId || null;
 
@@ -41,13 +39,13 @@ export default function App() {
           [USER_PROPERTIES.PLATFORM]: Platform.OS,
         });
 
-        console.log('[App] Analytics initialized');
+        console.log('[App] Services initialized');
       } catch (error) {
-        console.error('[App] Failed to initialize analytics:', error);
+        console.error('[App] Failed to initialize services:', error);
       }
     };
 
-    initializeAnalytics();
+    initializeServices();
   }, []);
 
   // Handle notification taps (only on mobile platforms)

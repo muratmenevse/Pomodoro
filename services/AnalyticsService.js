@@ -65,15 +65,7 @@ class AnalyticsService {
         return;
       }
 
-      // In development, use mock mode to avoid PostHog SDK issues
-      if (__DEV__) {
-        console.log('[Analytics] Running in mock mode (development)');
-        this.isConfigured = true;
-        this.posthog = null;
-        return;
-      }
-
-      // Configure PostHog for production
+      // Configure PostHog
       if (!apiKey) {
         console.warn('[Analytics] No API key provided');
         return;

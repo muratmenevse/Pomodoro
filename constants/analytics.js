@@ -5,6 +5,12 @@
  * This ensures consistency across the app and makes it easy to update event names.
  */
 
+// PostHog configuration
+export const POSTHOG_CONFIG = {
+  API_KEY: process.env.EXPO_PUBLIC_POSTHOG_API_KEY || '',
+  HOST: 'https://us.posthog.com',
+};
+
 // Event names
 export const ANALYTICS_EVENTS = {
   // User lifecycle

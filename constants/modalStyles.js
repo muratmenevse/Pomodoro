@@ -50,6 +50,17 @@ export const COMMON_MODAL_STYLES = {
     paddingTop: MODAL_CONSTANTS.HEADER_PADDING_TOP,
     paddingHorizontal: MODAL_CONSTANTS.HEADER_PADDING_HORIZONTAL,
     paddingBottom: MODAL_CONSTANTS.HEADER_PADDING_BOTTOM,
+    backgroundColor: MODAL_CONSTANTS.BACKGROUND_COLOR,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
+  },
+  headerScrolled: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    borderBottomWidth: 0,
   },
   title: {
     fontSize: MODAL_CONSTANTS.TITLE_FONT_SIZE,

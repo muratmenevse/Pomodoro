@@ -131,7 +131,7 @@ const styles = StyleSheet.create({
   },
   characterContainer: {
     marginBottom: 30,
-    marginTop: 100,
+    marginTop: 40,
   },
   timerText: {
     fontSize: 64,

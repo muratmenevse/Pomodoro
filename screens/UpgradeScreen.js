@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Dimensions,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
 import RevenueCatService from '../services/RevenueCatService';
@@ -69,22 +70,22 @@ export default function UpgradeScreen({ navigation }) {
     await AnalyticsService.trackPremiumPurchaseInitiated(selectedPlan);
 
     try {
-      const productId = selectedPlan === 'yearly'
-        ? 'pomodoro_plus_yearly'
-        : 'pomodoro_plus_monthly';
-
-      const result = await RevenueCatService.purchaseProduct(productId);
+      const pkg = selectedPlan === 'yearly' ? yearlyPackage : monthlyPackage;
+      const result = await RevenueCatService.purchasePackage(pkg);
 
       if (result && result.customerInfo) {
         // Track successful purchase with actual price
-        const pkg = selectedPlan === 'yearly' ? yearlyPackage : monthlyPackage;
         const price = pkg?.product?.price || 0;
         const currency = pkg?.product?.currencyCode || 'USD';
         await AnalyticsService.trackPremiumPurchased(selectedPlan, price, currency);
 
         // Update membership status
         await upgradeToPlus();
-        navigation.goBack();
+        Alert.alert(
+          'Welcome to Tomito Plus!',
+          'Your purchase was successful.',
+          [{ text: 'OK', onPress: () => navigation.goBack() }]
+        );
       }
     } catch (error) {
       if (!error.userCancelled) {
@@ -98,7 +99,7 @@ export default function UpgradeScreen({ navigation }) {
   const handleRestore = async () => {
     setPurchasing(true);
     try {
-      const restoredInfo = await RevenueCatService.restorePurchases();
+      await RevenueCatService.restorePurchases();
       const hasPlus = await RevenueCatService.hasPlusAccess();
 
       if (hasPlus) {
