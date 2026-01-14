@@ -11,6 +11,7 @@ import AppNavigator from './navigation/AppNavigator';
 import RevenueCatService from './services/RevenueCatService';
 import NotificationService from './services/NotificationService';
 import AnalyticsService from './services/AnalyticsService';
+import TrackingService from './services/TrackingService';
 import { ANALYTICS_EVENTS, USER_PROPERTIES, POSTHOG_CONFIG } from './constants/analytics';
 
 export default function App() {
@@ -21,8 +22,12 @@ export default function App() {
   useEffect(() => {
     const initializeServices = async () => {
       try {
-        // First, configure RevenueCat and wait for it
+        // Configure RevenueCat first
         await RevenueCatService.configure();
+
+        // Request ATT permission (iOS only, for ad attribution)
+        // Must be after RevenueCat configure so collectDeviceIdentifiers works
+        await TrackingService.requestPermission();
 
         // Get PostHog API key from config
         const apiKey = POSTHOG_CONFIG.API_KEY;

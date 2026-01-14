@@ -6,7 +6,6 @@ import {
   StyleSheet,
   Modal,
   Pressable,
-  ScrollView,
 } from 'react-native';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
 import { useAnalyticsConsent } from '../contexts/AnalyticsConsentContext';
@@ -57,54 +56,32 @@ export default function PrivacyConsentModal() {
 
         {/* Popup Modal Card */}
         <View style={styles.modalCard}>
-          <ScrollView showsVerticalScrollIndicator={false}>
-            {/* Title */}
-            <Text style={styles.title}>Help Us Improve</Text>
+          {/* Title */}
+          <Text style={styles.title}>Help Us Improve</Text>
 
-            {/* Message */}
-            <Text style={styles.message}>
-              We'd like to collect anonymous usage data to improve your experience and understand how the app is used.
-            </Text>
+          {/* Message */}
+          <Text style={styles.message}>
+            We collect anonymous usage data to improve the app. You can change this in Settings.
+          </Text>
 
-            {/* What we collect */}
-            <View style={styles.detailsContainer}>
-              <Text style={styles.detailsTitle}>What we collect:</Text>
-              <Text style={styles.bulletPoint}>• App usage and feature interactions</Text>
-              <Text style={styles.bulletPoint}>• Timer completion statistics</Text>
-              <Text style={styles.bulletPoint}>• Device type and app version</Text>
-            </View>
+          {/* Buttons */}
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity
+              style={styles.declineButton}
+              onPress={handleDecline}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.declineButtonText}>No Thanks</Text>
+            </TouchableOpacity>
 
-            <View style={styles.detailsContainer}>
-              <Text style={styles.detailsTitle}>What we DON'T collect:</Text>
-              <Text style={styles.bulletPoint}>• Personal information</Text>
-              <Text style={styles.bulletPoint}>• Category names or custom content</Text>
-              <Text style={styles.bulletPoint}>• Exact times or dates</Text>
-            </View>
-
-            {/* Privacy note */}
-            <Text style={styles.privacyNote}>
-              Your data is anonymous and helps us make the app better. You can change this anytime in Settings.
-            </Text>
-
-            {/* Buttons */}
-            <View style={styles.buttonContainer}>
-              <TouchableOpacity
-                style={styles.declineButton}
-                onPress={handleDecline}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.declineButtonText}>No Thanks</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.acceptButton}
-                onPress={handleAccept}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.acceptButtonText}>Accept</Text>
-              </TouchableOpacity>
-            </View>
-          </ScrollView>
+            <TouchableOpacity
+              style={styles.acceptButton}
+              onPress={handleAccept}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.acceptButtonText}>Accept</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     </Modal>
@@ -133,7 +110,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     width: '100%',
     maxWidth: 400,
-    maxHeight: '80%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
@@ -154,33 +130,7 @@ const styles = StyleSheet.create({
     color: '#2C3E50',
     textAlign: 'center',
     lineHeight: 22,
-    marginBottom: 20,
-  },
-  detailsContainer: {
-    marginBottom: 16,
-  },
-  detailsTitle: {
-    fontSize: 14,
-    fontFamily: 'Poppins_600SemiBold',
-    color: '#2C3E50',
-    marginBottom: 8,
-  },
-  bulletPoint: {
-    fontSize: 13,
-    fontFamily: 'Poppins_400Regular',
-    color: '#8B8B8B',
-    lineHeight: 20,
-    paddingLeft: 8,
-  },
-  privacyNote: {
-    fontSize: 12,
-    fontFamily: 'Poppins_400Regular',
-    color: '#9C27B0',
-    textAlign: 'center',
-    lineHeight: 18,
-    marginTop: 12,
     marginBottom: 24,
-    fontStyle: 'italic',
   },
   buttonContainer: {
     flexDirection: 'row',
