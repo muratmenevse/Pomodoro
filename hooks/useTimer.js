@@ -60,6 +60,7 @@ export function useTimer({
   // Refs
   const intervalRef = useRef(null);
   const isFocusedRef = useRef(true); // Track if screen is focused
+  const endTimeRef = useRef(null); // Wall clock time when timer should complete
 
   // Update timer display when test mode changes
   useEffect(() => {
@@ -109,45 +110,47 @@ export function useTimer({
     }, [selectedCategory, allCategories, timerConfig.defaultMinutes])
   );
 
-  // Countdown logic
+  // Countdown logic - uses wall clock time to stay in sync with scheduled notifications
   useEffect(() => {
-    if (isRunning) {
+    if (isRunning && endTimeRef.current) {
       intervalRef.current = setInterval(() => {
-        setTimeInSeconds((prevTime) => {
-          if (prevTime <= 1) {
-            clearInterval(intervalRef.current);
-            setIsRunning(false);
-            setIsCompleted(true);
-            playNotificationSound();
-            // Save completed session
-            saveCompletedSession(selectedCategory, sessionStartMinutes);
+        const remaining = Math.round((endTimeRef.current - Date.now()) / 1000);
 
-            // Clear timer state from AsyncStorage since timer completed
-            AsyncStorage.multiRemove([
-              TIMER_END_TIME_KEY,
-              TIMER_SESSION_MINUTES_KEY,
-              TIMER_CATEGORY_KEY
-            ]).catch(err => console.log('Error clearing timer state:', err));
+        if (remaining <= 0) {
+          clearInterval(intervalRef.current);
+          setTimeInSeconds(0);
+          setIsRunning(false);
+          setIsCompleted(true);
+          endTimeRef.current = null;
+          playNotificationSound();
+          // Save completed session
+          saveCompletedSession(selectedCategory, sessionStartMinutes);
 
-            // Cancel scheduled notification since timer completed in foreground (only on mobile platforms)
-            if (Platform.OS !== 'web') {
-              TimerNotificationManager.cancel().catch(err => console.log('Error canceling notification:', err));
-            }
+          // Clear timer state from AsyncStorage since timer completed
+          AsyncStorage.multiRemove([
+            TIMER_END_TIME_KEY,
+            TIMER_SESSION_MINUTES_KEY,
+            TIMER_CATEGORY_KEY
+          ]).catch(err => console.log('Error clearing timer state:', err));
 
-            // Navigate to success screen (deferred to avoid render-time navigation)
-            // Close any open modals (like "Give Up" confirmation) before showing Success screen
-            setTimeout(() => {
-              const state = navigation.getState();
-              // If there are other screens in the stack (like Confirmation modal), close them first
-              if (state.routes.length > 1) {
-                navigation.popToTop();
-              }
-              navigation.navigate('Success', { test10SecondMode });
-            }, 0);
-            return 0;
+          // Cancel scheduled notification since timer completed in foreground (only on mobile platforms)
+          if (Platform.OS !== 'web') {
+            TimerNotificationManager.cancel().catch(err => console.log('Error canceling notification:', err));
           }
-          return prevTime - 1;
-        });
+
+          // Navigate to success screen (deferred to avoid render-time navigation)
+          // Close any open modals (like "Give Up" confirmation) before showing Success screen
+          setTimeout(() => {
+            const state = navigation.getState();
+            // If there are other screens in the stack (like Confirmation modal), close them first
+            if (state.routes.length > 1) {
+              navigation.popToTop();
+            }
+            navigation.navigate('Success', { test10SecondMode });
+          }, 0);
+        } else {
+          setTimeInSeconds(remaining);
+        }
       }, 1000);
     } else {
       if (intervalRef.current) {
@@ -178,6 +181,10 @@ export function useTimer({
     const minutes = timerConfig.useSlider ? sliderMinutes : timerConfig.defaultMinutes;
     setSessionStartMinutes(minutes);
     setTimeInSeconds(minutes * 60);
+
+    // Set endTime ref immediately so useEffect can start countdown
+    const endTime = Date.now() + (minutes * 60 * 1000);
+    endTimeRef.current = endTime;
 
     // Track timer started
     await AnalyticsService.trackTimerStarted(minutes, selectedCategory);
@@ -223,7 +230,6 @@ export function useTimer({
     }
 
     // Save timer state to AsyncStorage for background recovery
-    const endTime = Date.now() + (minutes * 60 * 1000);
     try {
       await AsyncStorage.setItem(TIMER_END_TIME_KEY, endTime.toString());
       await AsyncStorage.setItem(TIMER_SESSION_MINUTES_KEY, minutes.toString());
@@ -237,6 +243,7 @@ export function useTimer({
   const handleReset = async () => {
     setIsRunning(false);
     setIsCompleted(false);
+    endTimeRef.current = null;
 
     // Use selected category's current default time
     const currentCategory = allCategories.find(cat => cat.name === selectedCategory);
