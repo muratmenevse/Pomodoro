@@ -13,6 +13,7 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
+      "bundleIdentifier": "com.obslo.tomito",
       "supportsTablet": true,
       "infoPlist": {
         "UIBackgroundModes": [
@@ -28,7 +29,8 @@
       "edgeToEdgeEnabled": true,
       "permissions": [
         "android.permission.VIBRATE",
-        "android.permission.POST_NOTIFICATIONS"
+        "android.permission.POST_NOTIFICATIONS",
+        "com.google.android.gms.permission.AD_ID"
       ],
       "notification": {
         "icon": "./assets/notification-icon-small.png",
@@ -51,6 +53,12 @@
         }
       ],
       "expo-tracking-transparency"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "abe0d6c5-d33d-4e02-befb-06e429499f00"
+      }
+    },
+    "owner": "menevse"
   }
 }
