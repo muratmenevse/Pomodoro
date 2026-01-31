@@ -41,5 +41,3 @@ yarn-error.*
 /ios
 /android
 
-# App icons (too large for git)
-assets/icons/
