@@ -1,6 +1,8 @@
 import { Platform } from 'react-native';
-import { requestTrackingPermissionsAsync, getTrackingPermissionsAsync } from 'expo-tracking-transparency';
-import Purchases from 'react-native-purchases';
+
+// Only import native modules on native platforms (crashes on web)
+const trackingModule = Platform.OS === 'ios' ? require('expo-tracking-transparency') : null;
+const Purchases = Platform.OS !== 'web' ? require('react-native-purchases').default : null;
 
 /**
  * TrackingService - Handles iOS App Tracking Transparency (ATT)
@@ -24,7 +26,7 @@ class TrackingService {
     }
 
     try {
-      const { status } = await requestTrackingPermissionsAsync();
+      const { status } = await trackingModule.requestTrackingPermissionsAsync();
       this.permissionStatus = status;
 
       if (status === 'granted') {
@@ -52,7 +54,7 @@ class TrackingService {
     }
 
     try {
-      const { status } = await getTrackingPermissionsAsync();
+      const { status } = await trackingModule.getTrackingPermissionsAsync();
       this.permissionStatus = status;
       return status;
     } catch (error) {

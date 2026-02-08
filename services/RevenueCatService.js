@@ -1,6 +1,9 @@
-import Purchases, { LOG_LEVEL } from 'react-native-purchases';
 import { Platform } from 'react-native';
 import { REVENUECAT_CONFIG } from '../constants/membership';
+
+// Only import Purchases on native platforms (crashes on web)
+const Purchases = Platform.OS !== 'web' ? require('react-native-purchases').default : null;
+const LOG_LEVEL = Platform.OS !== 'web' ? require('react-native-purchases').LOG_LEVEL : {};
 
 class RevenueCatService {
   constructor() {
