@@ -14,8 +14,10 @@
     },
     "ios": {
       "bundleIdentifier": "com.obslo.tomito",
+      "buildNumber": "2",
       "supportsTablet": true,
       "infoPlist": {
+        "CFBundleName": "Tomito",
         "UIBackgroundModes": [
           "remote-notification"
         ],

@@ -56,7 +56,7 @@ export default function HamburgerMenu({ visible, onClose, onSettings, onProgress
 
           <PlusMenuItem
             label="Progress"
-            isPlusFeature={true}
+            isPlusFeature={false}
             testPlusMode={testPlusMode}
             onPress={() => {
               onClose();

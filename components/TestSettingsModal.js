@@ -17,6 +17,8 @@ export default function TestSettingsModal({
   setShowTestPages,
   test10SecondMode,
   setTest10SecondMode,
+  testFakeDataMode,
+  setTestFakeDataMode,
 }) {
   const { testPlusMode, setTestPlusMode } = useMembership();
 
@@ -91,7 +93,7 @@ export default function TestSettingsModal({
 
             {/* 10 Second Timer */}
             <TouchableOpacity
-              style={[styles.settingItem, styles.lastItem]}
+              style={styles.settingItem}
               onPress={() => setTest10SecondMode(!test10SecondMode)}
               activeOpacity={0.7}
             >
@@ -104,6 +106,28 @@ export default function TestSettingsModal({
               <Switch
                 value={test10SecondMode}
                 onValueChange={setTest10SecondMode}
+                trackColor={{ false: '#8B8B8B', true: '#9C27B0' }}
+                thumbColor="#FFFFFF"
+              />
+            </TouchableOpacity>
+
+            <View style={styles.separator} />
+
+            {/* Fake Data Mode */}
+            <TouchableOpacity
+              style={[styles.settingItem, styles.lastItem]}
+              onPress={() => setTestFakeDataMode(!testFakeDataMode)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.settingItemLeft}>
+                <Text style={styles.settingItemTitle}>Fake Data Mode</Text>
+                <Text style={styles.settingItemDescription}>
+                  Show mock data in Progress charts for testing visualization
+                </Text>
+              </View>
+              <Switch
+                value={testFakeDataMode}
+                onValueChange={setTestFakeDataMode}
                 trackColor={{ false: '#8B8B8B', true: '#9C27B0' }}
                 thumbColor="#FFFFFF"
               />

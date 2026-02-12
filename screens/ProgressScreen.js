@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -6,13 +6,13 @@ import {
   Dimensions,
   TouchableOpacity,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Rect, Text as SvgText, Line } from 'react-native-svg';
 import { useMembership } from '../contexts/MembershipContext';
 import ScreenContainer from '../components/ScreenContainer';
-import PlusFeatureLock from '../components/PlusFeatureLock';
 import TomatoCharacter from '../components/TomatoCharacter';
 import { CHARACTER_STATES } from '../components/characterStates';
 import AnalyticsService from '../services/AnalyticsService';
@@ -22,15 +22,53 @@ const COMPLETED_SESSIONS_KEY = '@completed_sessions';
 const WEEK_START_DAY_KEY = '@week_start_day';
 
 export default function ProgressScreen({ navigation, route }) {
-  const { categories = [], testPlusMode = false } = route.params || {};
+  const { categories = [], testPlusMode = false, testFakeDataMode = false } = route.params || {};
   const { isPlusMember: actualIsPlusMember } = useMembership();
   const [sessionData, setSessionData] = useState({});
   const [selectedCategory, setSelectedCategory] = useState('All');
-  const [selectedView, setSelectedView] = useState('week'); // 'week', 'month', 'year'
+  const [selectedView, setSelectedView] = useState('day'); // 'day', 'week', 'month', 'year'
   const [weekStartDay, setWeekStartDay] = useState('Sunday');
 
   // In dev mode, allow testPlusMode to override actual membership
   const isPlusMember = __DEV__ && testPlusMode ? true : actualIsPlusMember;
+
+  // Check if current view is premium (week/month/year are premium, day is free)
+  const isPremiumView = selectedView !== 'day';
+  const showPremiumOverlay = !isPlusMember && isPremiumView;
+
+  // Generate mock session data for testing charts
+  const generateMockData = () => {
+    const mockData = {};
+    const today = new Date();
+
+    // Generate data for the past year
+    for (let daysAgo = 0; daysAgo < 365; daysAgo++) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - daysAgo);
+      const dateString = date.toISOString().split('T')[0];
+
+      // Random chance of having sessions (70% of days)
+      if (Math.random() < 0.7) {
+        const sessionCount = Math.floor(Math.random() * 5) + 1; // 1-5 sessions
+        mockData[dateString] = [];
+
+        for (let i = 0; i < sessionCount; i++) {
+          mockData[dateString].push({
+            minutes: Math.floor(Math.random() * 45) + 15, // 15-60 minutes
+            category: 'Work',
+            status: 'completed',
+          });
+        }
+      }
+    }
+    return mockData;
+  };
+
+  // Generate mock data once (only when in fake data mode)
+  const mockData = useMemo(() => testFakeDataMode ? generateMockData() : {}, [testFakeDataMode]);
+
+  // Switch between fake and real data - NO MERGING
+  const displayData = testFakeDataMode ? mockData : sessionData;
 
   const [fontsLoaded] = useFonts({
     Poppins_400Regular,
@@ -39,10 +77,9 @@ export default function ProgressScreen({ navigation, route }) {
   });
 
   useEffect(() => {
-    if (isPlusMember) {
-      loadSessionData();
-    }
-  }, [isPlusMember]);
+    // Load session data for all users (day view is free)
+    loadSessionData();
+  }, []);
 
   // Track progress viewed when screen mounts (only if Plus member)
   useEffect(() => {
@@ -172,7 +209,7 @@ export default function ProgressScreen({ navigation, route }) {
   // Calculate total minutes for a specific day and category
   const getTotalMinutes = (date, category) => {
     const dateString = date.toISOString().split('T')[0];
-    const sessions = sessionData[dateString] || [];
+    const sessions = displayData[dateString] || [];
 
     // Only count completed sessions (exclude failed sessions from focus time totals)
     const filteredSessions = category === 'All'
@@ -286,7 +323,7 @@ export default function ProgressScreen({ navigation, route }) {
     // Extract categories from sessions within the visible date range
     dates.forEach(date => {
       const dateString = date.toISOString().split('T')[0];
-      const sessions = sessionData[dateString] || [];
+      const sessions = displayData[dateString] || [];
 
       sessions.forEach(session => {
         if (!categoryMap.has(session.category)) {
@@ -315,14 +352,14 @@ export default function ProgressScreen({ navigation, route }) {
     if (selectedView === 'day') {
       const today = new Date();
       const dateString = today.toISOString().split('T')[0];
-      const sessions = sessionData[dateString] || [];
+      const sessions = displayData[dateString] || [];
       const filteredSessions = sessions.filter(s => s.status === status || (!s.status && status === 'completed'));
       totalSessions = filteredSessions.length;
     } else if (selectedView === 'week') {
       const weekDays = getCurrentWeekDays(weekStartDay);
       weekDays.forEach(date => {
         const dateString = date.toISOString().split('T')[0];
-        const sessions = sessionData[dateString] || [];
+        const sessions = displayData[dateString] || [];
         // Filter by status, treating sessions without status as completed for backward compatibility
         const filteredSessions = sessions.filter(s => s.status === status || (!s.status && status === 'completed'));
         totalSessions += filteredSessions.length;
@@ -333,7 +370,7 @@ export default function ProgressScreen({ navigation, route }) {
         const currentDate = new Date(week.start);
         while (currentDate <= week.end) {
           const dateString = currentDate.toISOString().split('T')[0];
-          const sessions = sessionData[dateString] || [];
+          const sessions = displayData[dateString] || [];
           const filteredSessions = sessions.filter(s => s.status === status || (!s.status && status === 'completed'));
           totalSessions += filteredSessions.length;
           currentDate.setDate(currentDate.getDate() + 1);
@@ -347,7 +384,7 @@ export default function ProgressScreen({ navigation, route }) {
         const currentDate = new Date(firstDay);
         while (currentDate <= lastDay) {
           const dateString = currentDate.toISOString().split('T')[0];
-          const sessions = sessionData[dateString] || [];
+          const sessions = displayData[dateString] || [];
           const filteredSessions = sessions.filter(s => s.status === status || (!s.status && status === 'completed'));
           totalSessions += filteredSessions.length;
           currentDate.setDate(currentDate.getDate() + 1);
@@ -360,32 +397,6 @@ export default function ProgressScreen({ navigation, route }) {
 
   if (!fontsLoaded) {
     return null;
-  }
-
-  // If not Plus member, show upgrade prompt
-  if (!isPlusMember) {
-    return (
-      <ScreenContainer
-        onClose={() => navigation.goBack()}
-        title="Progress"
-      >
-        <View style={styles.lockContainer}>
-          <PlusFeatureLock
-            feature="progress"
-            onPress={() => {
-              navigation.navigate('Upgrade');
-            }}
-          >
-            <View style={styles.lockedContent}>
-              <Text style={styles.lockedTitle}>Track Your Progress</Text>
-              <Text style={styles.lockedDescription}>
-                Upgrade to Plus to track your daily focus sessions and see your productivity trends over time.
-              </Text>
-            </View>
-          </PlusFeatureLock>
-        </View>
-      </ScreenContainer>
-    );
   }
 
   // Build chart data based on selected view
@@ -431,15 +442,28 @@ export default function ProgressScreen({ navigation, route }) {
   const barWidth = chartWidth / barCount - 10;
   const TOP_PADDING = 20; // Padding to prevent label cutoff at top
 
-  // Generate gridline intervals (every 15 minutes)
+  // Generate gridline intervals with max 8 gridlines
   const generateGridlines = () => {
-    const maxHours = Math.ceil((maxMinutes / 60) * 4) / 4; // Round up to nearest 0.25
+    const maxHours = maxMinutes / 60;
+    const MAX_GRIDLINES = 8;
+
+    // Preferred intervals in hours - pick smallest that gives <= 8 gridlines
+    const preferredIntervals = [0.25, 0.5, 1, 2, 5, 10, 20, 50, 100];
+    const interval = preferredIntervals.find(i => maxHours / i <= MAX_GRIDLINES) || 100;
+
     const gridlines = [];
-    for (let i = 0; i <= maxHours * 4; i++) {
-      gridlines.push(i * 0.25);
+    const maxValue = Math.ceil(maxHours / interval) * interval;
+
+    for (let value = 0; value <= maxValue; value += interval) {
+      gridlines.push(value);
     }
-    return gridlines;
+
+    return { gridlines, maxValue };
   };
+
+  // Calculate gridlines once for consistent scaling
+  const { gridlines, maxValue: maxGridHours } = generateGridlines();
+  const maxGridMinutes = maxGridHours * 60;
 
   return (
     <ScreenContainer
@@ -502,9 +526,19 @@ export default function ProgressScreen({ navigation, route }) {
       {/* View Header */}
       <Text style={styles.viewHeader}>{getHeaderText()}</Text>
 
+      {/* Unlock Plus Features Banner - shown for free users viewing premium content */}
+      {showPremiumOverlay && (
+        <View style={styles.plusInfoContainer}>
+          <Text style={styles.plusInfoTitle}>Unlock Plus Features</Text>
+          <TouchableOpacity style={styles.upgradeButton} onPress={() => navigation.navigate('Upgrade')}>
+            <Text style={styles.upgradeButtonText}>Upgrade to Plus</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Chart Section - includes chart and category filter */}
       <View style={styles.chartSection}>
-        <Text style={styles.sectionTitle}>Successful Focus Time</Text>
+        <Text style={styles.sectionTitle}>Successful Focus Time <Text style={styles.sectionTitleUnit}>(hours)</Text></Text>
 
         {/* Day Summary View */}
         {selectedView === 'day' && (
@@ -521,15 +555,15 @@ export default function ProgressScreen({ navigation, route }) {
           </View>
         )}
 
-        {/* Bar Chart */}
+        {/* Bar Chart and Category Filter - wrapped for blur effect */}
         {selectedView !== 'day' && (
-          <View style={styles.chartContainer}>
-            <Svg width={chartWidth + 70} height={chartHeight + 80}>
-              {/* Grid lines (every 15 minutes) and Y-axis labels (every 30 minutes) */}
-              {generateGridlines().map((value, index) => {
-                const y = TOP_PADDING + chartHeight - (value / (maxMinutes / 60)) * chartHeight;
-                const showLabel = value % 0.5 === 0; // Show label only at 30-minute intervals
-                const label = value === 0 ? '0' : value < 1 ? `${value * 60}m` : `${value}h`;
+          <View style={styles.chartWrapper}>
+            <View style={styles.chartContainer}>
+              <Svg width={chartWidth + 70} height={chartHeight + 80}>
+                {/* Grid lines and Y-axis labels (max 8 gridlines) */}
+              {gridlines.map((value, index) => {
+                const y = TOP_PADDING + chartHeight - (value / maxGridHours) * chartHeight;
+                const label = `${value}`;
 
                 return (
                   <React.Fragment key={index}>
@@ -541,24 +575,23 @@ export default function ProgressScreen({ navigation, route }) {
                       stroke="rgba(139, 139, 139, 0.2)"
                       strokeWidth="1"
                     />
-                    {showLabel && (
-                      <SvgText
-                        x="5"
-                        y={y + 5}
-                        fill="#8B8B8B"
-                        fontSize="12"
-                        fontFamily="Poppins_400Regular"
-                      >
-                        {label}
-                      </SvgText>
-                    )}
+                    <SvgText
+                      x="25"
+                      y={y + 5}
+                      fill="#8B8B8B"
+                      fontSize="10"
+                      fontFamily="Poppins_400Regular"
+                      textAnchor="end"
+                    >
+                      {label}
+                    </SvgText>
                   </React.Fragment>
                 );
               })}
 
               {/* Bars */}
               {chartData.map((data, index) => {
-                const barHeight = (data.minutes / maxMinutes) * chartHeight;
+                const barHeight = (data.minutes / maxGridMinutes) * chartHeight;
                 const x = 40 + index * (barWidth + 10);
                 const y = TOP_PADDING + chartHeight - barHeight;
 
@@ -593,45 +626,49 @@ export default function ProgressScreen({ navigation, route }) {
                 );
               })}
             </Svg>
-          </View>
-        )}
+            </View>
 
-        {/* Category Filter */}
-        {selectedView !== 'day' && (
-          <View style={styles.categoryFilter}>
-            <TouchableOpacity
-              style={[
-                styles.categoryPill,
-                selectedCategory === 'All' && styles.categoryPillSelected,
-                { backgroundColor: selectedCategory === 'All' ? '#8B8B8B' : 'rgba(139, 139, 139, 0.15)' }
-              ]}
-              onPress={() => setSelectedCategory('All')}
-            >
-              <Text style={[
-                styles.categoryPillText,
-                selectedCategory === 'All' && styles.categoryPillTextSelected
-              ]}>All</Text>
-            </TouchableOpacity>
+            {/* Category Filter */}
+            <View style={styles.categoryFilter}>
+              <TouchableOpacity
+                style={[
+                  styles.categoryPill,
+                  selectedCategory === 'All' && styles.categoryPillSelected,
+                  { backgroundColor: selectedCategory === 'All' ? '#8B8B8B' : 'rgba(139, 139, 139, 0.15)' }
+                ]}
+                onPress={() => setSelectedCategory('All')}
+              >
+                <Text style={[
+                  styles.categoryPillText,
+                  selectedCategory === 'All' && styles.categoryPillTextSelected
+                ]}>All</Text>
+              </TouchableOpacity>
 
-            {filteredCategories.map((category) => {
-              const isSelected = selectedCategory === category.name;
-              return (
-                <TouchableOpacity
-                  key={category.name}
-                  style={[
-                    styles.categoryPill,
-                    isSelected && styles.categoryPillSelected,
-                    { backgroundColor: isSelected ? category.color : 'rgba(139, 139, 139, 0.15)' }
-                  ]}
-                  onPress={() => setSelectedCategory(category.name)}
-                >
-                  <Text style={[
-                    styles.categoryPillText,
-                    isSelected && styles.categoryPillTextSelected
-                  ]}>{category.name}</Text>
-                </TouchableOpacity>
-              );
-            })}
+              {filteredCategories.map((category) => {
+                const isSelected = selectedCategory === category.name;
+                return (
+                  <TouchableOpacity
+                    key={category.name}
+                    style={[
+                      styles.categoryPill,
+                      isSelected && styles.categoryPillSelected,
+                      { backgroundColor: isSelected ? category.color : 'rgba(139, 139, 139, 0.15)' }
+                    ]}
+                    onPress={() => setSelectedCategory(category.name)}
+                  >
+                    <Text style={[
+                      styles.categoryPillText,
+                      isSelected && styles.categoryPillTextSelected
+                    ]}>{category.name}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Blur overlay for premium content */}
+            {showPremiumOverlay && (
+              <BlurView intensity={20} tint="light" style={StyleSheet.absoluteFill} />
+            )}
           </View>
         )}
       </View>
@@ -641,23 +678,30 @@ export default function ProgressScreen({ navigation, route }) {
         <View style={styles.tomitosSection}>
           <Text style={styles.tomitosTitle}>Tomitos</Text>
 
-          {/* Happy Tomitos */}
-          {completedSessions > 0 && (
-            <View style={styles.tomitosContent}>
-              <TomatoCharacter size={44} state={CHARACTER_STATES.COMPLETED} />
-              <Text style={styles.tomitosText}>x {completedSessions}</Text>
-              <Text style={styles.tomitosText}>Happy Tomitos</Text>
-            </View>
-          )}
+          <View style={styles.tomitosWrapper}>
+            {/* Happy Tomitos */}
+            {completedSessions > 0 && (
+              <View style={styles.tomitosContent}>
+                <TomatoCharacter size={44} state={CHARACTER_STATES.COMPLETED} />
+                <Text style={styles.tomitosText}>x {completedSessions}</Text>
+                <Text style={styles.tomitosText}>Happy Tomitos</Text>
+              </View>
+            )}
 
-          {/* Rotten Tomitos */}
-          {failedSessions > 0 && (
-            <View style={styles.tomitosContent}>
-              <TomatoCharacter size={44} state={CHARACTER_STATES.ROTTEN} />
-              <Text style={styles.tomitosText}>x {failedSessions}</Text>
-              <Text style={styles.tomitosText}>Rotten Tomitos</Text>
-            </View>
-          )}
+            {/* Rotten Tomitos */}
+            {failedSessions > 0 && (
+              <View style={styles.tomitosContent}>
+                <TomatoCharacter size={44} state={CHARACTER_STATES.ROTTEN} />
+                <Text style={styles.tomitosText}>x {failedSessions}</Text>
+                <Text style={styles.tomitosText}>Rotten Tomitos</Text>
+              </View>
+            )}
+
+            {/* Blur overlay for premium content */}
+            {showPremiumOverlay && (
+              <BlurView intensity={20} tint="light" style={StyleSheet.absoluteFill} />
+            )}
+          </View>
         </View>
       )}
     </ScreenContainer>
@@ -665,28 +709,38 @@ export default function ProgressScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-  lockContainer: {
-    flex: 1,
-    justifyContent: 'center',
+  plusInfoContainer: {
+    marginBottom: 15,
+    padding: 15,
+    backgroundColor: 'rgba(156, 39, 176, 0.1)',
+    borderRadius: 20,
     alignItems: 'center',
-    paddingVertical: 60,
   },
-  lockedContent: {
-    alignItems: 'center',
-    padding: 30,
-  },
-  lockedTitle: {
-    fontSize: 24,
+  plusInfoTitle: {
+    fontSize: 16,
     fontFamily: 'Poppins_700Bold',
     color: '#2C3E50',
-    marginBottom: 10,
+    marginBottom: 15,
   },
-  lockedDescription: {
-    fontSize: 16,
-    fontFamily: 'Poppins_400Regular',
-    color: '#8B8B8B',
-    textAlign: 'center',
-    lineHeight: 24,
+  upgradeButton: {
+    backgroundColor: '#9C27B0',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  upgradeButtonText: {
+    fontSize: 14,
+    fontFamily: 'Poppins_600SemiBold',
+    color: '#FFFFFF',
+  },
+  chartWrapper: {
+    position: 'relative',
+    overflow: 'hidden',
   },
   viewSwitcher: {
     flexDirection: 'row',
@@ -785,6 +839,11 @@ const styles = StyleSheet.create({
     marginBottom: 0,
     textAlign: 'left',
   },
+  sectionTitleUnit: {
+    fontSize: 14,
+    fontFamily: 'Poppins_400Regular',
+    color: '#8B8B8B',
+  },
   tomitosSection: {
     backgroundColor: 'rgba(255, 255, 255, 0.8)',
     borderRadius: 16,
@@ -792,6 +851,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 20,
     alignItems: 'flex-start',
+  },
+  tomitosWrapper: {
+    position: 'relative',
+    overflow: 'hidden',
+    width: '100%',
   },
   tomitosTitle: {
     fontSize: 18,

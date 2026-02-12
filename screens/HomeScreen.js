@@ -47,6 +47,7 @@ const CATEGORIES_LIST_KEY = '@categories_list';
 const COMPLETED_SESSIONS_KEY = '@completed_sessions';
 const TEST_PAGES_KEY = '@test_pages';
 const TEST_10_SECOND_MODE_KEY = '@test_10_second_mode';
+const TEST_FAKE_DATA_MODE_KEY = '@test_fake_data_mode';
 const TIMER_END_TIME_KEY = '@active_timer_end_time';
 const TIMER_SESSION_MINUTES_KEY = '@active_timer_session_minutes';
 const TIMER_CATEGORY_KEY = '@active_timer_category';
@@ -111,6 +112,7 @@ export default function HomeScreen({ navigation }) {
   // Test mode state for test pages (dev only)
   const [showTestPages, setShowTestPages] = useState(false);
   const [test10SecondMode, setTest10SecondMode] = useState(false);
+  const [testFakeDataMode, setTestFakeDataMode] = useState(false);
 
   // Get timer configuration based on mode (Configuration Object Pattern)
   const timerConfig = useMemo(
@@ -246,6 +248,11 @@ export default function HomeScreen({ navigation }) {
           if (test10Second !== null) {
             setTest10SecondMode(JSON.parse(test10Second));
           }
+
+          const testFakeData = await AsyncStorage.getItem(TEST_FAKE_DATA_MODE_KEY);
+          if (testFakeData !== null) {
+            setTestFakeDataMode(JSON.parse(testFakeData));
+          }
         } catch (error) {
           console.log('Error loading test settings:', error);
         }
@@ -262,13 +269,14 @@ export default function HomeScreen({ navigation }) {
         try {
           await AsyncStorage.setItem(TEST_PAGES_KEY, JSON.stringify(showTestPages));
           await AsyncStorage.setItem(TEST_10_SECOND_MODE_KEY, JSON.stringify(test10SecondMode));
+          await AsyncStorage.setItem(TEST_FAKE_DATA_MODE_KEY, JSON.stringify(testFakeDataMode));
         } catch (error) {
           console.log('Error saving test settings:', error);
         }
       };
       saveTestSettings();
     }
-  }, [showTestPages, test10SecondMode]);
+  }, [showTestPages, test10SecondMode, testFakeDataMode]);
 
   // Helper functions needed by useTimer hook
 
@@ -603,7 +611,7 @@ export default function HomeScreen({ navigation }) {
         }}
         onProgress={() => {
           setShowHamburgerMenu(false);
-          navigation.navigate('Progress', { categories, testPlusMode });
+          navigation.navigate('Progress', { categories, testPlusMode, testFakeDataMode });
         }}
         onPlusClick={() => {
           setShowHamburgerMenu(false);
@@ -622,6 +630,8 @@ export default function HomeScreen({ navigation }) {
           setShowTestPages={setShowTestPages}
           test10SecondMode={test10SecondMode}
           setTest10SecondMode={setTest10SecondMode}
+          testFakeDataMode={testFakeDataMode}
+          setTestFakeDataMode={setTestFakeDataMode}
         />
       )}
     </View>

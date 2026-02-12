@@ -86,14 +86,10 @@ class NotificationService {
    */
   async sendSuccessNotification(sessionMinutes) {
     try {
-      // Calculate total focused minutes including this session
-      const previousMinutes = await this.getTodaysFocusedMinutes();
-      const totalMinutes = previousMinutes + sessionMinutes;
-
       await Notifications.scheduleNotificationAsync({
         content: {
           title: 'Nice Job!',
-          body: `You have focused for ${totalMinutes} m today`,
+          body: `You focused for ${sessionMinutes} minutes`,
           sound: 'successSound.m4a',
           vibrate: [0, 250, 250, 250],
           priority: Notifications.AndroidNotificationPriority.HIGH,
@@ -107,7 +103,6 @@ class NotificationService {
           data: {
             screen: 'Success',
             sessionMinutes,
-            totalMinutes,
           },
         },
         trigger: null, // Send immediately
@@ -128,24 +123,19 @@ class NotificationService {
    */
   async scheduleTimerCompletion(minutes, sessionMinutes, categoryName) {
     try {
-      // Calculate total focused minutes including this upcoming session
-      const previousMinutes = await this.getTodaysFocusedMinutes();
-      const totalMinutes = previousMinutes + sessionMinutes;
-
       // Calculate exact completion time
       const triggerDate = new Date(Date.now() + minutes * 60 * 1000);
 
       const notificationId = await Notifications.scheduleNotificationAsync({
         content: {
           title: 'Nice Job!',
-          body: `You have focused for ${totalMinutes} m today`,
+          body: `You focused for ${sessionMinutes} minutes`,
           sound: 'successSound.m4a',
           vibrate: [0, 250, 250, 250],
           priority: Notifications.AndroidNotificationPriority.HIGH,
           data: {
             screen: 'Success',
             sessionMinutes,
-            totalMinutes,
             category: categoryName,
           },
         },
