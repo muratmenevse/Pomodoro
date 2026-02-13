@@ -14,7 +14,7 @@
     },
     "ios": {
       "bundleIdentifier": "com.obslo.tomito",
-      "buildNumber": "3",
+      "buildNumber": "4",
       "supportsTablet": true,
       "infoPlist": {
         "CFBundleName": "Tomito",
