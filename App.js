@@ -1,5 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
+import * as SplashScreen from 'expo-splash-screen';
+
+SplashScreen.preventAutoHideAsync();
 import { NavigationContainer } from '@react-navigation/native';
 import { MembershipProvider } from './contexts/MembershipContext';
 import { ModalProvider } from './contexts/ModalContext';
@@ -47,6 +50,12 @@ export default function App() {
         console.log('[App] Services initialized');
       } catch (error) {
         console.error('[App] Failed to initialize services:', error);
+      } finally {
+        try {
+          await SplashScreen.hideAsync();
+        } catch (e) {
+          // Splash may already be hidden
+        }
       }
     };
 
