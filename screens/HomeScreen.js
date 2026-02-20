@@ -135,50 +135,18 @@ export default function HomeScreen({ navigation }) {
   }, []);
 
   // Monitor app state to check timer completion when returning to foreground
+  // Update timer display when returning from background (timer still running)
+  // Timer completion is handled by useTimer's interval (which skips sound if app was in background)
   useEffect(() => {
     const subscription = AppState.addEventListener('change', async (nextAppState) => {
       if (nextAppState === 'active') {
-        // App came to foreground, check if timer was running
         try {
           const endTimeStr = await AsyncStorage.getItem(TIMER_END_TIME_KEY);
           if (endTimeStr) {
             const endTime = parseInt(endTimeStr, 10);
             const now = Date.now();
 
-            if (now >= endTime) {
-              // Timer completed while app was in background
-              const sessionMinutesStr = await AsyncStorage.getItem(TIMER_SESSION_MINUTES_KEY);
-              const categoryName = await AsyncStorage.getItem(TIMER_CATEGORY_KEY);
-              const sessionMinutes = sessionMinutesStr ? parseInt(sessionMinutesStr, 10) : sliderMinutes;
-
-              // Save completed session
-              await saveCompletedSession(categoryName || selectedCategory, sessionMinutes);
-
-              // Clear timer state
-              await AsyncStorage.multiRemove([
-                TIMER_END_TIME_KEY,
-                TIMER_SESSION_MINUTES_KEY,
-                TIMER_CATEGORY_KEY
-              ]);
-
-              // Clear notification (only on mobile platforms)
-              if (Platform.OS !== 'web') {
-                await TimerNotificationManager.clearFromStorage();
-              }
-
-              // Update UI and navigate (deferred to avoid render-time state updates)
-              setTimeout(() => {
-                setIsRunning(false);
-                setIsCompleted(true);
-
-                // Close any open modals (like "Give Up" confirmation) before showing Success screen
-                const state = navigation.getState();
-                if (state.routes.length > 1) {
-                  navigation.popToTop();
-                }
-                navigation.navigate('Success', { test10SecondMode });
-              }, 0);
-            } else {
+            if (now < endTime) {
               // Timer still running, update display with remaining time
               const remainingSeconds = Math.ceil((endTime - now) / 1000);
               setTimeout(() => {
@@ -283,6 +251,9 @@ export default function HomeScreen({ navigation }) {
   // Load and play notification sound
   const playNotificationSound = async () => {
     try {
+      const soundEnabled = await AsyncStorage.getItem('@sound_enabled');
+      if (soundEnabled === 'false') return;
+
       const { sound } = await Audio.Sound.createAsync(
         require('../assets/sounds/successSound.m4a')
       );

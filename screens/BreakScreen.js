@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, AppState } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, AppState, Dimensions } from 'react-native';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
 import { Audio } from 'expo-av';
 import * as Notifications from 'expo-notifications';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import ScreenContainer from '../components/ScreenContainer';
 import TomatoCharacter from '../components/TomatoCharacter';
 import { CHARACTER_STATES } from '../components/characterStates';
 
+const TOMATO_SIZE = Math.max(110, Math.min(Dimensions.get('window').width * 0.4, 260));
 const NORMAL_BREAK_DURATION = 300; // 5 minutes in seconds
 const TEST_BREAK_DURATION = 10; // 10 seconds for testing
 
@@ -21,6 +23,7 @@ export default function BreakScreen({ navigation, route }) {
   const endTimeRef = useRef(Date.now() + breakDuration * 1000);
   const completedRef = useRef(false);
   const notificationIdRef = useRef(null);
+  const wasInBackgroundRef = useRef(false);
   const [sound, setSound] = useState();
 
   const [fontsLoaded] = useFonts({
@@ -32,6 +35,9 @@ export default function BreakScreen({ navigation, route }) {
   // Play notification sound
   const playNotificationSound = async () => {
     try {
+      const soundEnabled = await AsyncStorage.getItem('@sound_enabled');
+      if (soundEnabled === 'false') return;
+
       const { sound } = await Audio.Sound.createAsync(
         require('../assets/sounds/successSound.m4a')
       );
@@ -54,11 +60,15 @@ export default function BreakScreen({ navigation, route }) {
         if (completedRef.current) return;
         completedRef.current = true;
         setTimeInSeconds(0);
-        // Foreground: cancel notification (so its sound doesn't also play), play expo-av
-        if (notificationIdRef.current) {
-          Notifications.cancelScheduledNotificationAsync(notificationIdRef.current);
+        // Only play expo-av sound if break completed in foreground
+        // If app was in background, the scheduled notification already played the sound
+        if (!wasInBackgroundRef.current) {
+          if (notificationIdRef.current) {
+            Notifications.cancelScheduledNotificationAsync(notificationIdRef.current);
+          }
+          playNotificationSound();
         }
-        playNotificationSound();
+        wasInBackgroundRef.current = false;
         setTimeout(() => handleClose(), 0);
       } else {
         setTimeInSeconds(remaining);
@@ -71,6 +81,22 @@ export default function BreakScreen({ navigation, route }) {
       }
     };
   }, [breakDuration]);
+
+  // Track app background state so interval knows whether to play sound
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'background') {
+        wasInBackgroundRef.current = true;
+      } else if (nextAppState === 'active' && wasInBackgroundRef.current) {
+        // Keep flag true only if break expired while in background
+        const remaining = Math.round((endTimeRef.current - Date.now()) / 1000);
+        if (remaining > 0) {
+          wasInBackgroundRef.current = false;
+        }
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
   // Recalculate remaining time when app returns to foreground
   useEffect(() => {
@@ -96,12 +122,13 @@ export default function BreakScreen({ navigation, route }) {
   useEffect(() => {
     const schedule = async () => {
       try {
+        const soundEnabled = await AsyncStorage.getItem('@sound_enabled');
         const triggerDate = new Date(endTimeRef.current);
         const id = await Notifications.scheduleNotificationAsync({
           content: {
-            title: "Break's over!",
+            title: 'Break is over!',
             body: 'Time to focus',
-            sound: 'successSound.m4a',
+            ...(soundEnabled !== 'false' && { sound: 'successSound.m4a' }),
           },
           trigger: { type: 'date', date: triggerDate },
         });
@@ -155,7 +182,7 @@ export default function BreakScreen({ navigation, route }) {
         <View style={styles.characterContainer}>
           <TomatoCharacter
             state={CHARACTER_STATES.BREAK}
-            size={140}
+            size={TOMATO_SIZE}
           />
         </View>
 

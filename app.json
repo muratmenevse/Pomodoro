@@ -14,7 +14,7 @@
     },
     "ios": {
       "bundleIdentifier": "com.obslo.tomito",
-      "buildNumber": "4",
+      "buildNumber": "6",
       "supportsTablet": true,
       "infoPlist": {
         "CFBundleName": "Tomito",
@@ -55,8 +55,12 @@
           ]
         }
       ],
-      "expo-tracking-transparency",
-      "expo-splash-screen"
+      ["expo-splash-screen", {
+        "image": "./assets/icons/splash-icon.png",
+        "backgroundColor": "#F5F1ED",
+        "imageWidth": 280,
+        "resizeMode": "contain"
+      }]
     ],
     "extra": {
       "eas": {
