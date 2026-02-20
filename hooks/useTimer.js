@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Platform } from 'react-native';
+import { Platform, AppState } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import TimerNotificationManager from '../services/TimerNotificationManager';
@@ -61,6 +61,7 @@ export function useTimer({
   const intervalRef = useRef(null);
   const isFocusedRef = useRef(true); // Track if screen is focused
   const endTimeRef = useRef(null); // Wall clock time when timer should complete
+  const wasInBackgroundRef = useRef(false); // Track if app was in background
 
   // Update timer display when test mode changes
   useEffect(() => {
@@ -110,6 +111,21 @@ export function useTimer({
     }, [selectedCategory, allCategories, timerConfig.defaultMinutes])
   );
 
+  // Track app background state so interval knows whether to play sound
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'background') {
+        wasInBackgroundRef.current = true;
+      } else if (nextAppState === 'active' && wasInBackgroundRef.current) {
+        // Keep flag true only if timer expired while in background
+        if (!endTimeRef.current || Date.now() < endTimeRef.current) {
+          wasInBackgroundRef.current = false;
+        }
+      }
+    });
+    return () => sub.remove();
+  }, []);
+
   // Countdown logic - uses wall clock time to stay in sync with scheduled notifications
   useEffect(() => {
     if (isRunning && endTimeRef.current) {
@@ -122,7 +138,14 @@ export function useTimer({
           setIsRunning(false);
           setIsCompleted(true);
           endTimeRef.current = null;
-          playNotificationSound();
+
+          // Only play expo-av sound if timer completed in foreground
+          // If app was in background, the scheduled notification already played the sound
+          if (!wasInBackgroundRef.current) {
+            playNotificationSound();
+          }
+          wasInBackgroundRef.current = false;
+
           // Save completed session
           saveCompletedSession(selectedCategory, sessionStartMinutes);
 

@@ -17,11 +17,16 @@ class TimerNotificationManager {
    */
   async scheduleCompletion(minutes, sessionMinutes, category) {
     try {
+      // Check if sound is enabled
+      const soundSetting = await AsyncStorage.getItem('@sound_enabled');
+      const soundEnabled = soundSetting !== 'false';
+
       // Schedule the notification
       const notificationId = await NotificationService.scheduleTimerCompletion(
         minutes,
         sessionMinutes,
-        category
+        category,
+        soundEnabled
       );
 
       this.notificationId = notificationId;

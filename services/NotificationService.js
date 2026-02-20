@@ -121,7 +121,7 @@ class NotificationService {
    * @param {string} categoryName - Category name for the session
    * @returns {Promise<string>} Notification ID for cancellation
    */
-  async scheduleTimerCompletion(minutes, sessionMinutes, categoryName) {
+  async scheduleTimerCompletion(minutes, sessionMinutes, categoryName, soundEnabled = true) {
     try {
       // Calculate exact completion time
       const triggerDate = new Date(Date.now() + minutes * 60 * 1000);
@@ -130,7 +130,7 @@ class NotificationService {
         content: {
           title: 'Nice Job!',
           body: `You focused for ${sessionMinutes} minutes`,
-          sound: 'successSound.m4a',
+          ...(soundEnabled && { sound: 'successSound.m4a' }),
           vibrate: [0, 250, 250, 250],
           priority: Notifications.AndroidNotificationPriority.HIGH,
           data: {
