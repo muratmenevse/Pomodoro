@@ -90,6 +90,21 @@ class RevenueCatService {
     return purchaserInfo.entitlements.active[REVENUECAT_CONFIG.ENTITLEMENT_ID] !== undefined;
   }
 
+  // Get Plus entitlement expiration date
+  async getPlusExpirationDate() {
+    if (!this.isConfigured) return null;
+    const purchaserInfo = await this.getPurchaserInfo();
+    if (!purchaserInfo) return null;
+    const entitlement = purchaserInfo.entitlements.active[REVENUECAT_CONFIG.ENTITLEMENT_ID];
+    return entitlement?.expirationDate || null;
+  }
+
+  // Open native subscription management screen
+  async showManageSubscriptions() {
+    if (!this.isConfigured) return;
+    await Purchases.showManageSubscriptions();
+  }
+
   // Get available packages/products
   async getOfferings() {
     console.log('[RevenueCat] getOfferings called, isConfigured:', this.isConfigured);

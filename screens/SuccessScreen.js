@@ -1,9 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
 import ScreenContainer from '../components/ScreenContainer';
 import TomatoCharacter from '../components/TomatoCharacter';
 import { CHARACTER_STATES } from '../components/characterStates';
+
+const TOMATO_SIZE = Math.max(110, Math.min(Dimensions.get('window').width * 0.4, 260));
 
 export default function SuccessScreen({ navigation, route }) {
   const { test10SecondMode = false } = route.params || {};
@@ -38,7 +40,7 @@ export default function SuccessScreen({ navigation, route }) {
         <View style={styles.characterContainer}>
           <TomatoCharacter
             state={CHARACTER_STATES.COMPLETED}
-            size={140}
+            size={TOMATO_SIZE}
           />
         </View>
 

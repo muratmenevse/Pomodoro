@@ -1,4 +1,5 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
+import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   MEMBERSHIP_TIERS,
@@ -6,6 +7,7 @@ import {
   MEMBERSHIP_STORAGE_KEYS,
   PLUS_FEATURES
 } from '../constants/membership';
+import RevenueCatService from '../services/RevenueCatService';
 
 // Create the context
 const MembershipContext = createContext(null);
@@ -25,6 +27,7 @@ export const MembershipProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [customCategories, setCustomCategories] = useState([]);
   const [testPlusMode, setTestPlusModeState] = useState(false);
+  const [expirationDate, setExpirationDate] = useState(null);
 
   // Load membership status on mount
   useEffect(() => {
@@ -39,6 +42,10 @@ export const MembershipProvider = ({ children }) => {
       const status = await AsyncStorage.getItem(MEMBERSHIP_STORAGE_KEYS.MEMBERSHIP_STATUS);
       if (status) {
         setMembershipTier(status);
+      }
+      const expiry = await AsyncStorage.getItem(MEMBERSHIP_STORAGE_KEYS.MEMBERSHIP_EXPIRY);
+      if (expiry) {
+        setExpirationDate(expiry);
       }
       setIsLoading(false);
     } catch (error) {
@@ -66,13 +73,55 @@ export const MembershipProvider = ({ children }) => {
       try {
         const testMode = await AsyncStorage.getItem('@test_plus_mode');
         if (testMode !== null) {
-          setTestPlusModeState(JSON.parse(testMode));
+          const enabled = JSON.parse(testMode);
+          setTestPlusModeState(enabled);
+          if (enabled) {
+            setExpirationDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString());
+          }
         }
       } catch (error) {
         console.error('Error loading test mode:', error);
       }
     }
   };
+
+  // Sync membership status with RevenueCat
+  const syncWithRevenueCat = async () => {
+    if (!RevenueCatService.isConfigured) return;
+    try {
+      const hasPlus = await RevenueCatService.hasPlusAccess();
+      const newTier = hasPlus ? MEMBERSHIP_TIERS.PLUS : MEMBERSHIP_TIERS.FREE;
+      await saveMembershipStatus(newTier);
+
+      const expDate = await RevenueCatService.getPlusExpirationDate();
+      if (expDate) {
+        await AsyncStorage.setItem(MEMBERSHIP_STORAGE_KEYS.MEMBERSHIP_EXPIRY, expDate);
+        setExpirationDate(expDate);
+      } else {
+        await AsyncStorage.removeItem(MEMBERSHIP_STORAGE_KEYS.MEMBERSHIP_EXPIRY);
+        setExpirationDate(null);
+      }
+
+    } catch (error) {
+      console.error('Error syncing membership with RevenueCat:', error);
+    }
+  };
+
+  // Sync on foreground + delayed initial sync
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        syncWithRevenueCat();
+      }
+    });
+
+    const timeout = setTimeout(syncWithRevenueCat, 5000);
+
+    return () => {
+      subscription.remove();
+      clearTimeout(timeout);
+    };
+  }, []);
 
   // Save membership status to AsyncStorage
   const saveMembershipStatus = async (tier) => {
@@ -103,6 +152,13 @@ export const MembershipProvider = ({ children }) => {
       try {
         await AsyncStorage.setItem('@test_plus_mode', JSON.stringify(enabled));
         setTestPlusModeState(enabled);
+        // Set mock expiration date for test mode
+        if (enabled) {
+          const mockExpiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+          setExpirationDate(mockExpiry);
+        } else {
+          setExpirationDate(null);
+        }
       } catch (error) {
         console.error('Error saving test mode:', error);
       }
@@ -255,6 +311,7 @@ export const MembershipProvider = ({ children }) => {
     isLoading,
     customCategories,
     testPlusMode,
+    expirationDate,
 
     // Functions
     setTestPlusMode,

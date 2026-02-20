@@ -168,7 +168,7 @@ export default function UpgradeScreen({ navigation }) {
                     {yearlyPackage?.product?.priceString || '$--'}
                   </Text>
                   <Text style={styles.planDescription}>
-                    ${monthlyEquivalent} per month
+                    {monthlyEquivalent} per month
                   </Text>
                   {discountPercent > 0 && (
                     <Text style={styles.planSavings}>Save {discountPercent}%</Text>

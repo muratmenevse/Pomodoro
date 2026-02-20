@@ -11,7 +11,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
 import { useMembership } from '../contexts/MembershipContext';
 import { useConfirmation } from '../contexts/ConfirmationContext';
-import { useAnalyticsConsent } from '../contexts/AnalyticsConsentContext';
 import MembershipBadge from '../components/MembershipBadge';
 import RevenueCatService from '../services/RevenueCatService';
 import ScreenContainer from '../components/ScreenContainer';
@@ -19,6 +18,7 @@ import AnalyticsService from '../services/AnalyticsService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const WEEK_START_DAY_KEY = '@week_start_day';
+const SOUND_ENABLED_KEY = '@sound_enabled';
 
 export default function SettingsScreen({ navigation }) {
   const {
@@ -28,10 +28,8 @@ export default function SettingsScreen({ navigation }) {
   } = useMembership();
 
   const { openConfirmation } = useConfirmation();
-  const { consentGranted, grantConsent, revokeConsent } = useAnalyticsConsent();
 
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [weekStartDay, setWeekStartDay] = useState('Sunday');
 
@@ -44,6 +42,21 @@ export default function SettingsScreen({ navigation }) {
   // Track settings opened
   useEffect(() => {
     AnalyticsService.trackSettingsOpened();
+  }, []);
+
+  // Load sound enabled preference
+  useEffect(() => {
+    const loadSoundEnabled = async () => {
+      try {
+        const saved = await AsyncStorage.getItem(SOUND_ENABLED_KEY);
+        if (saved !== null) {
+          setSoundEnabled(saved === 'true');
+        }
+      } catch (error) {
+        console.log('Error loading sound enabled:', error);
+      }
+    };
+    loadSoundEnabled();
   }, []);
 
   // Load week start day preference
@@ -75,15 +88,6 @@ export default function SettingsScreen({ navigation }) {
     }
   };
 
-  const handleAnalyticsConsentToggle = async (value) => {
-    const apiKey = process.env.EXPO_PUBLIC_POSTHOG_API_KEY || 'phc_test_key_dev_only';
-    if (value) {
-      await grantConsent(apiKey);
-    } else {
-      await revokeConsent();
-    }
-  };
-
   if (!fontsLoaded) {
     return null;
   }
@@ -108,23 +112,6 @@ export default function SettingsScreen({ navigation }) {
 
   const settingSections = [
     {
-      title: 'Membership',
-      items: [
-        {
-          id: 'membership_status',
-          title: 'Plan',
-          value: isPlusMember ? 'Plus' : 'Free',
-          showBadge: isPlusMember,
-        },
-        {
-          id: 'restore_purchases',
-          title: 'Restore Purchases',
-          onPress: handleRestorePurchases,
-          isLoading: restoring,
-        },
-      ],
-    },
-    {
       title: 'Preferences',
       items: [
         {
@@ -132,21 +119,14 @@ export default function SettingsScreen({ navigation }) {
           title: 'Sound Effects',
           hasSwitch: true,
           value: soundEnabled,
-          onValueChange: setSoundEnabled,
-        },
-        {
-          id: 'notifications',
-          title: 'Push Notifications',
-          hasSwitch: true,
-          value: notificationsEnabled,
-          onValueChange: setNotificationsEnabled,
-        },
-        {
-          id: 'analytics_consent',
-          title: 'Analytics & Insights',
-          hasSwitch: true,
-          value: consentGranted,
-          onValueChange: handleAnalyticsConsentToggle,
+          onValueChange: async (value) => {
+            setSoundEnabled(value);
+            try {
+              await AsyncStorage.setItem(SOUND_ENABLED_KEY, value.toString());
+            } catch (error) {
+              console.log('Error saving sound enabled:', error);
+            }
+          },
         },
       ],
     },
@@ -175,12 +155,19 @@ export default function SettingsScreen({ navigation }) {
       ],
     },
     {
-      title: 'About',
+      title: 'Membership',
       items: [
+        ...(isPlusMember ? [{
+          id: 'manage_subscription',
+          title: 'Manage Subscription',
+          onPress: () => RevenueCatService.showManageSubscriptions(),
+          showArrow: true,
+        }] : []),
         {
-          id: 'version',
-          title: 'Version',
-          value: '1.0.0',
+          id: 'restore_purchases',
+          title: 'Restore Purchases',
+          onPress: handleRestorePurchases,
+          isLoading: restoring,
         },
       ],
     },
@@ -231,7 +218,7 @@ export default function SettingsScreen({ navigation }) {
                         thumbColor="#FFFFFF"
                       />
                     ) : item.value ? (
-                      <Text style={styles.settingItemValue}>{item.value}</Text>
+                      <Text style={[styles.settingItemValue, item.onPress && { color: '#9C27B0' }]}>{item.value}</Text>
                     ) : null}
 
                     {item.actionText && (
@@ -253,6 +240,8 @@ export default function SettingsScreen({ navigation }) {
             </View>
           </View>
         ))}
+
+        <Text style={styles.versionText}>Version 1.0.0</Text>
     </ScreenContainer>
   );
 }
@@ -333,7 +322,7 @@ const styles = StyleSheet.create({
   },
   arrowText: {
     fontSize: 24,
-    color: '#8B8B8B',
+    color: '#9C27B0',
     marginLeft: 5,
   },
   plusInfoContainer: {
@@ -372,5 +361,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Poppins_600SemiBold',
     color: '#FFFFFF',
+  },
+  versionText: {
+    fontSize: 14,
+    fontFamily: 'Poppins_400Regular',
+    color: '#8B8B8B',
+    textAlign: 'center',
   },
 });
