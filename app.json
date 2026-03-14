@@ -1,0 +1,72 @@
+{
+  "expo": {
+    "name": "Tomito",
+    "slug": "pomodoro-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icons/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/icons/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F5F1ED"
+    },
+    "ios": {
+      "bundleIdentifier": "com.obslo.tomito",
+      "buildNumber": "6",
+      "supportsTablet": true,
+      "infoPlist": {
+        "CFBundleName": "Tomito",
+        "UIBackgroundModes": [
+          "remote-notification"
+        ],
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icons/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "android.permission.VIBRATE",
+        "android.permission.POST_NOTIFICATIONS",
+        "com.google.android.gms.permission.AD_ID"
+      ],
+      "notification": {
+        "icon": "./assets/notification-icon-small.png",
+        "color": "#FF7A59"
+      }
+    },
+    "web": {
+      "favicon": "./assets/icons/favicon.png"
+    },
+    "plugins": [
+      "expo-font",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon-small.png",
+          "color": "#FF7A59",
+          "sounds": [
+            "./assets/sounds/successSound.m4a"
+          ]
+        }
+      ],
+      ["expo-splash-screen", {
+        "image": "./assets/icons/splash-icon.png",
+        "backgroundColor": "#F5F1ED",
+        "imageWidth": 280,
+        "resizeMode": "contain"
+      }]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "abe0d6c5-d33d-4e02-befb-06e429499f00"
+      }
+    },
+    "owner": "menevse"
+  }
+}
